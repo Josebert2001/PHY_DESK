@@ -1446,7 +1446,7 @@ button, [onclick], select { cursor: pointer; }
     <div class="stagger-4">
       <div class="form-section-title">01 — Choose your course</div>
       <div class="course-grid">
-        <div class="ccard" id="card-PHY111" onclick="selectCourse('PHY111')">
+        <div class="ccard" id="card-PHY111" data-course="PHY111" role="button" tabindex="0" aria-pressed="false" onclick="selectCourse('PHY111')">
           <div class="ccard-glow"></div>
           <div class="ccard-header">
             <div class="ccard-icon">⚛️</div>
@@ -1460,7 +1460,7 @@ button, [onclick], select { cursor: pointer; }
             <div class="ccard-topics">10 topics</div>
           </div>
         </div>
-        <div class="ccard" id="card-PHY117" onclick="selectCourse('PHY117')">
+        <div class="ccard" id="card-PHY117" data-course="PHY117" role="button" tabindex="0" aria-pressed="false" onclick="selectCourse('PHY117')">
           <div class="ccard-glow"></div>
           <div class="ccard-header">
             <div class="ccard-icon">📐</div>
@@ -1481,17 +1481,17 @@ button, [onclick], select { cursor: pointer; }
     <div class="stagger-5">
       <div class="form-section-title">02 — Select study mode</div>
       <div class="mode-grid">
-        <div class="mcard" id="mode-exam" onclick="selectMode('exam')">
+        <div class="mcard" id="mode-exam" data-mode="exam" role="button" tabindex="0" aria-pressed="false" onclick="selectMode('exam')">
           <div class="mcard-icon">⏱</div>
           <div class="mcard-name">Timed Exam</div>
           <div class="mcard-desc">Full CBT simulation. Countdown timer. No feedback until you submit — just like the real thing.</div>
         </div>
-        <div class="mcard" id="mode-practice" onclick="selectMode('practice')">
+        <div class="mcard" id="mode-practice" data-mode="practice" role="button" tabindex="0" aria-pressed="false" onclick="selectMode('practice')">
           <div class="mcard-icon">📖</div>
           <div class="mcard-name">Practice Mode</div>
           <div class="mcard-desc">See the explanation the moment you answer. Perfect for learning and understanding concepts.</div>
         </div>
-        <div class="mcard" id="mode-topic" onclick="selectMode('topic')">
+        <div class="mcard" id="mode-topic" data-mode="topic" role="button" tabindex="0" aria-pressed="false" onclick="selectMode('topic')">
           <div class="mcard-icon">🎯</div>
           <div class="mcard-name">Topic Focus</div>
           <div class="mcard-desc">Drill one specific topic to target your weak areas with laser precision.</div>
@@ -2032,7 +2032,31 @@ window.onload = () => {
   const total = QUESTION_BANK.PHY111.length + QUESTION_BANK.PHY117.length;
   const el = document.getElementById('stat-total-q');
   if (el) el.textContent = total;
+
+  bindLandingControls();
+  validate();
 };
+
+function bindLandingControls() {
+  document.querySelectorAll('[data-course]').forEach(card => {
+    const course = card.dataset.course;
+    card.addEventListener('click', () => selectCourse(course));
+    card.addEventListener('keydown', evt => handleCardKeydown(evt, () => selectCourse(course)));
+  });
+
+  document.querySelectorAll('[data-mode]').forEach(card => {
+    const mode = card.dataset.mode;
+    card.addEventListener('click', () => selectMode(mode));
+    card.addEventListener('keydown', evt => handleCardKeydown(evt, () => selectMode(mode)));
+  });
+}
+
+function handleCardKeydown(evt, action) {
+  if (evt.key === 'Enter' || evt.key === ' ') {
+    evt.preventDefault();
+    action();
+  }
+}
 
 // ═══════════════════════════════════════════════
 // SCREEN NAV
@@ -2049,7 +2073,11 @@ function showScreen(name) {
 function selectCourse(c) {
   S.course = c;
   ['PHY111','PHY117'].forEach(x => {
-    document.getElementById('card-'+x).classList.toggle('sel', x === c);
+    const card = document.getElementById('card-'+x);
+    if (!card) return;
+    const isSelected = x === c;
+    card.classList.toggle('sel', isSelected);
+    card.setAttribute('aria-pressed', String(isSelected));
   });
   validate();
 }
@@ -2057,7 +2085,11 @@ function selectCourse(c) {
 function selectMode(m) {
   S.mode = m;
   ['exam','practice','topic'].forEach(x => {
-    document.getElementById('mode-'+x).classList.toggle('sel', x === m);
+    const card = document.getElementById('mode-'+x);
+    if (!card) return;
+    const isSelected = x === m;
+    card.classList.toggle('sel', isSelected);
+    card.setAttribute('aria-pressed', String(isSelected));
   });
   const tb = document.getElementById('cfg-time-box');
   if (tb) tb.style.opacity = m === 'exam' ? '1' : '0.45';
@@ -2083,6 +2115,11 @@ function validate() {
 // START SESSION
 // ═══════════════════════════════════════════════
 async function startSession() {
+  if (!(S.course && S.mode)) {
+    validate();
+    return;
+  }
+
   S.qCount    = parseInt(document.getElementById('cfg-count').value);
   S.timeLimit = parseInt(document.getElementById('cfg-time').value);
 
