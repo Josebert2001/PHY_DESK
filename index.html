@@ -1884,7 +1884,7 @@ PHY111: [
 ],
 
 // ════════════════════════════════════════════════════════════════
-// PHY 117 — PRACTICAL PHYSICS  (90 questions)
+// PHY 117 — PRACTICAL PHYSICS  (102 questions)
 // ════════════════════════════════════════════════════════════════
 PHY117: [
 
@@ -1990,6 +1990,22 @@ PHY117: [
 {topic:"Graph Transformation",q:"For Boyle's Law PV = constant, which graph is a straight line?",opts:["P vs V","P vs V²","P vs 1/V","PV vs V"],ans:2,exp:"PV = c → P = c × (1/V). Plot P (y) vs 1/V (x): straight line through origin with slope = c."},
 {topic:"Graph Transformation",q:"For F = mv²/r, to find m from graph (varying v and r), plot F vs:",opts:["v","v²/r","v/r","r/v²"],ans:1,exp:"F = m(v²/r). Plot F (y) vs v²/r (x): straight line through origin, slope = m (mass)."},
 
+// ── INSTRUMENTS & MEASUREMENT (6) ────────────────────────────
+{topic:"Instruments & Measurement",q:"Which instrument is most suitable for measuring the diameter of a thin wire accurately?",opts:["Metre rule","Measuring tape","Micrometer screw gauge","Spring balance"],ans:2,exp:"A micrometer screw gauge is designed for very small diameters and gives higher precision than a metre rule or tape."},
+{topic:"Instruments & Measurement",q:"A vernier caliper is commonly used to measure:",opts:["Large room dimensions","Current in a circuit","Internal/external diameters and depths","Mass of liquids"],ans:2,exp:"A vernier caliper measures internal diameter, external diameter, and depth with good precision."},
+{topic:"Instruments & Measurement",q:"If a stopwatch runs fast, the error introduced is mainly:",opts:["Random error","Systematic error","Parallax error","No error"],ans:1,exp:"A fast stopwatch shifts all time readings in the same direction, which is systematic error."},
+{topic:"Instruments & Measurement",q:"Parallax error is reduced when the observer's eye is:",opts:["Above the scale at an angle","Directly in line with the pointer/mark","Far from the instrument","Moving while reading"],ans:1,exp:"Parallax is minimized when the eye is perpendicular to and directly aligned with the reading mark."},
+{topic:"Instruments & Measurement",q:"An instrument shows 0.04 when it should read 0.00. This is:",opts:["Scale expansion","Zero error","Random drift","Range error"],ans:1,exp:"A non-zero reading when the true value is zero is called zero error."},
+{topic:"Instruments & Measurement",q:"Which reading style improves practical accuracy the most?",opts:["Taking one quick reading","Taking repeated readings and averaging","Rounding all values to whole numbers","Ignoring anomalous units"],ans:1,exp:"Repeated observations and averaging reduce random effects and improve measurement reliability."},
+
+// ── PRECISION & ACCURACY (6) ─────────────────────────────────
+{topic:"Precision & Accuracy",q:"A set of readings is tightly clustered but far from the true value. This means:",opts:["High accuracy, low precision","Low accuracy, high precision","High accuracy, high precision","Low accuracy, low precision"],ans:1,exp:"Tightly grouped readings indicate precision, but being far from the true value indicates poor accuracy."},
+{topic:"Precision & Accuracy",q:"For a measured value S = 3.00 ± 0.015 m, percentage fractional error is:",opts:["0.5%","5%","0.05%","1.5%"],ans:0,exp:"Fractional error = (0.015/3.00) × 100 = 0.5%."},
+{topic:"Precision & Accuracy",q:"In practical work, random errors are best reduced by:",opts:["Changing physical constants","Taking many measurements and averaging","Ignoring outliers always","Using different units"],ans:1,exp:"Random errors fluctuate unpredictably, so repeated readings with averaging reduce their impact."},
+{topic:"Precision & Accuracy",q:"If vertical scatter W = 1.2 and number of observations n = 9, then σ = W/√n equals:",opts:["0.2","0.4","0.6","1.8"],ans:1,exp:"σ = W/√n = 1.2/3 = 0.4."},
+{topic:"Precision & Accuracy",q:"In many PHY 117 notes, uncertainty in slope is related to W, n, and horizontal range R. Which variable represents horizontal spread?",opts:["W","n","R","σ"],ans:2,exp:"R denotes the horizontal range (difference between largest and smallest x-values) used in slope uncertainty expressions."},
+{topic:"Precision & Accuracy",q:"Accuracy in an experiment refers to:",opts:["How close readings are to each other","How close a result is to the true value","How many readings are recorded","How fast readings are taken"],ans:1,exp:"Accuracy is closeness to the accepted or true value, while precision is closeness among repeated readings."},
+
 ],
 
 // Question bank ends here
@@ -2002,7 +2018,7 @@ PHY117: [
 // ═══════════════════════════════════════════════
 const TOPICS_MAP = {
   PHY111:["Dimensional Analysis","Kinematics","Vectors","Newton's Laws","Work, Energy & Power","Momentum & Collisions","Circular & Harmonic Motion","Rotational Dynamics","Static Equilibrium","Gravitation"],
-  PHY117:["Graphical Analysis","Error Analysis","SHM & Pendulum","Circular Motion","Elasticity","Graph Transformation"]
+  PHY117:["Graphical Analysis","Error Analysis","SHM & Pendulum","Circular Motion","Elasticity","Graph Transformation","Instruments & Measurement","Precision & Accuracy"]
 };
 const COURSE_LABELS = {
   PHY111:"PHY 111 · General Physics I",
