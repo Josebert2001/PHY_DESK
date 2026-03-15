@@ -1,0 +1,2439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhysicsDesk — UniUyo CBT Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=JetBrains+Mono:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════
+   DESIGN SYSTEM
+═══════════════════════════════════════════════════════ */
+:root {
+  /* Palette — deep navy + warm cream + amber */
+  --ink:      #0b0e14;
+  --ink2:     #111520;
+  --ink3:     #181d28;
+  --ink4:     #1f2535;
+  --line:     #262d3d;
+  --line2:    #303a50;
+  --mist:     #3d4a62;
+  --smoke:    #5a6a84;
+  --fog:      #8494ae;
+  --cream:    #e8e2d4;
+  --cream2:   #f4f0e8;
+  --amber:    #e8a020;
+  --amber2:   #f4bc50;
+  --amberglow:rgba(232,160,32,0.12);
+  --ambersoft:rgba(232,160,32,0.06);
+  --teal:     #3ab8c8;
+  --teal2:    #5ed0dc;
+  --emerald:  #2ec08a;
+  --emerald2: #50d4a0;
+  --rose:     #e04050;
+  --rose2:    #f06070;
+
+  /* Typography */
+  --display: 'Playfair Display', serif;
+  --mono:    'JetBrains Mono', monospace;
+  --body:    'Outfit', sans-serif;
+
+  /* Geometry */
+  --r-sm: 6px;
+  --r:    10px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+}
+
+/* ── RESET & BASE ── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; font-size:16px; }
+body {
+  background: var(--ink);
+  color: var(--cream);
+  font-family: var(--body);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Grain overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)' opacity='0.035'/%3E%3C/svg%3E");
+  opacity: 0.6;
+}
+
+/* Custom cursor */
+* { cursor: default; }
+button, [onclick], select { cursor: pointer; }
+
+/* ── SCREENS ── */
+.screen { display: none; min-height: 100vh; }
+.screen.active { display: flex; flex-direction: column; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--ink); }
+::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--mist); }
+
+/* ═══════════════════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════════════════ */
+@keyframes fadeUp   { from { opacity:0; transform:translateY(24px) } to { opacity:1; transform:translateY(0) } }
+@keyframes fadeIn   { from { opacity:0 } to { opacity:1 } }
+@keyframes slideIn  { from { opacity:0; transform:translateX(-16px) } to { opacity:1; transform:translateX(0) } }
+@keyframes spin     { to { transform:rotate(360deg) } }
+@keyframes blink    { 0%,100%{opacity:1} 50%{opacity:0.3} }
+@keyframes scanline { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
+@keyframes numberUp { from{opacity:0;transform:translateY(8px) scale(.9)} to{opacity:1;transform:translateY(0) scale(1)} }
+@keyframes ripple   { from{transform:scale(0);opacity:.5} to{transform:scale(4);opacity:0} }
+@keyframes floatBg  { 0%,100%{transform:translateY(0) rotate(0)} 50%{transform:translateY(-20px) rotate(1deg)} }
+
+/* staggered delays for landing */
+.stagger-1 { animation: fadeUp .6s ease both .05s }
+.stagger-2 { animation: fadeUp .6s ease both .15s }
+.stagger-3 { animation: fadeUp .6s ease both .25s }
+.stagger-4 { animation: fadeUp .6s ease both .35s }
+.stagger-5 { animation: fadeUp .6s ease both .45s }
+.stagger-6 { animation: fadeUp .6s ease both .55s }
+
+/* ═══════════════════════════════════════════════════════
+   LANDING SCREEN
+═══════════════════════════════════════════════════════ */
+#screen-landing {
+  background: var(--ink);
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background geometry */
+.bg-geo {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  overflow: hidden;
+}
+.bg-geo::before {
+  content: '';
+  position: absolute;
+  top: -30%; right: -20%;
+  width: 80vw; height: 80vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(232,160,32,.04) 0%, transparent 60%);
+  animation: floatBg 14s ease infinite;
+}
+.bg-geo::after {
+  content: '';
+  position: absolute;
+  bottom: -20%; left: -10%;
+  width: 60vw; height: 60vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(58,184,200,.03) 0%, transparent 60%);
+  animation: floatBg 18s ease infinite reverse;
+}
+.bg-lines {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  opacity: .18;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
+}
+
+/* NAV BAR */
+.top-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 40px;
+  background: rgba(11,14,20,.7);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--line);
+}
+.nav-logo {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--cream2);
+  letter-spacing: -0.5px;
+}
+.nav-logo span { color: var(--amber); }
+.nav-badge {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--fog); letter-spacing: 1.5px;
+}
+.nav-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--emerald);
+  box-shadow: 0 0 8px var(--emerald);
+  animation: blink 2.5s ease infinite;
+}
+
+/* HERO SECTION */
+.land-hero {
+  width: 100%; max-width: 940px;
+  margin: 0 auto;
+  padding: 140px 40px 60px;
+  position: relative; z-index: 1;
+}
+
+.hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--amber); margin-bottom: 28px;
+  padding: 7px 14px;
+  background: var(--ambersoft);
+  border: 1px solid rgba(232,160,32,.2);
+  border-radius: 100px;
+}
+.hero-eyebrow-line {
+  width: 24px; height: 1px;
+  background: var(--amber); opacity: .5;
+}
+
+.hero-headline {
+  font-family: var(--display);
+  font-size: clamp(48px, 7vw, 86px);
+  font-weight: 900;
+  line-height: .95;
+  letter-spacing: -2px;
+  margin-bottom: 28px;
+  color: var(--cream2);
+}
+.hero-headline .hl-italic {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--amber);
+}
+.hero-headline .hl-outline {
+  -webkit-text-stroke: 1px var(--cream);
+  color: transparent;
+}
+
+.hero-sub {
+  font-size: 16px;
+  color: var(--fog);
+  max-width: 520px;
+  line-height: 1.75;
+  font-weight: 300;
+  margin-bottom: 56px;
+}
+
+/* STATS ROW — small social proof */
+.hero-stats {
+  display: flex; gap: 40px; margin-bottom: 60px;
+  padding-bottom: 48px;
+  border-bottom: 1px solid var(--line);
+}
+.hstat-num {
+  font-family: var(--display);
+  font-size: 32px; font-weight: 700;
+  color: var(--cream2); margin-bottom: 2px;
+}
+.hstat-lbl {
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: 2px;
+  color: var(--smoke); text-transform: uppercase;
+}
+
+/* FORM SECTIONS */
+.land-form {
+  width: 100%; max-width: 940px;
+  margin: 0 auto;
+  padding: 0 40px 100px;
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; gap: 48px;
+}
+
+.form-section-title {
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--mist);
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.form-section-title::after {
+  content: '';
+  flex: 1; height: 1px;
+  background: linear-gradient(90deg, var(--line), transparent);
+}
+
+/* COURSE CARDS */
+.course-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.ccard {
+  position: relative;
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 28px 28px 24px;
+  cursor: pointer;
+  transition: border-color .2s, transform .2s, box-shadow .2s;
+  overflow: hidden;
+}
+.ccard-glow {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 80% 20%, rgba(232,160,32,.07), transparent 60%);
+  opacity: 0; transition: opacity .3s;
+}
+.ccard:hover .ccard-glow { opacity: 1; }
+.ccard:hover {
+  border-color: rgba(232,160,32,.4);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 48px rgba(0,0,0,.4), 0 0 0 1px rgba(232,160,32,.12);
+}
+.ccard.sel {
+  border-color: var(--amber);
+  background: var(--ink3);
+  box-shadow: 0 0 0 1px var(--amber), 0 20px 48px rgba(232,160,32,.12);
+}
+.ccard.sel .ccard-glow { opacity: 1; }
+
+.ccard-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 18px;
+}
+.ccard-icon {
+  width: 44px; height: 44px;
+  border-radius: var(--r-sm);
+  background: var(--ink3);
+  border: 1px solid var(--line2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  transition: all .2s;
+}
+.ccard.sel .ccard-icon { background: var(--ambersoft); border-color: rgba(232,160,32,.3); }
+.ccard-check {
+  width: 22px; height: 22px;
+  border: 1.5px solid var(--line2);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: transparent;
+  transition: all .2s;
+}
+.ccard.sel .ccard-check {
+  background: var(--amber); border-color: var(--amber);
+  color: var(--ink); font-weight: 700;
+}
+.ccard-code {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 2px; color: var(--amber);
+  margin-bottom: 6px;
+}
+.ccard-name {
+  font-family: var(--display);
+  font-size: 20px; font-weight: 700;
+  color: var(--cream2); margin-bottom: 8px;
+  letter-spacing: -.3px;
+}
+.ccard-desc {
+  font-size: 12px; color: var(--smoke);
+  line-height: 1.65; margin-bottom: 16px;
+}
+.ccard-footer {
+  display: flex; align-items: center; gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.ccard-count {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 1px; color: var(--emerald);
+  background: rgba(46,192,138,.07);
+  border: 1px solid rgba(46,192,138,.15);
+  padding: 3px 8px; border-radius: 4px;
+}
+.ccard-topics {
+  font-size: 10px; color: var(--mist);
+}
+
+/* MODE SELECTOR */
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 12px;
+}
+.mcard {
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 24px 20px;
+  cursor: pointer;
+  transition: all .2s;
+  position: relative;
+  overflow: hidden;
+}
+.mcard::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--teal), var(--teal2));
+  transform: scaleX(0); transform-origin: left;
+  transition: transform .25s ease;
+}
+.mcard:hover { border-color: rgba(58,184,200,.3); background: var(--ink3); }
+.mcard:hover::after { transform: scaleX(1); }
+.mcard.sel {
+  border-color: var(--teal);
+  background: rgba(58,184,200,.05);
+}
+.mcard.sel::after { transform: scaleX(1); }
+.mcard-icon {
+  width: 40px; height: 40px;
+  border-radius: var(--r-sm);
+  background: var(--ink4);
+  border: 1px solid var(--line2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  margin-bottom: 14px;
+  transition: all .2s;
+}
+.mcard.sel .mcard-icon { background: rgba(58,184,200,.1); border-color: rgba(58,184,200,.3); }
+.mcard-name { font-size: 14px; font-weight: 600; color: var(--cream); margin-bottom: 5px; }
+.mcard-desc { font-size: 11px; color: var(--smoke); line-height: 1.6; }
+
+/* CONFIG ROW */
+.cfg-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.cfg-card {
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 16px 18px;
+  transition: border-color .2s;
+}
+.cfg-card:focus-within { border-color: var(--line2); }
+.cfg-label {
+  font-family: var(--mono); font-size: 8px;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--smoke); margin-bottom: 8px;
+  display: block;
+}
+.cfg-value {
+  display: flex; align-items: center; gap: 6px;
+}
+.cfg-value-icon { font-size: 14px; }
+.cfg-sel {
+  flex: 1; background: transparent; border: none;
+  color: var(--cream); font-family: var(--body);
+  font-size: 14px; font-weight: 500;
+  cursor: pointer; outline: none; appearance: none;
+}
+.cfg-sel option { background: var(--ink2); }
+
+/* CTA AREA */
+.cta-area {
+  display: flex; align-items: center; gap: 24px;
+}
+.btn-launch {
+  position: relative;
+  background: var(--amber);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  padding: 18px 48px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all .22s;
+  overflow: hidden;
+}
+.btn-launch::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.25) 50%, transparent 100%);
+  transform: translateX(-100%);
+  transition: transform .5s ease;
+}
+.btn-launch:hover::before { transform: translateX(100%); }
+.btn-launch:hover {
+  background: var(--amber2);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(232,160,32,.4);
+}
+.btn-launch:disabled {
+  background: var(--ink4);
+  color: var(--mist);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.btn-launch:disabled::before { display: none; }
+.btn-launch-hint {
+  font-size: 12px; color: var(--mist); font-weight: 300;
+}
+.btn-launch-hint strong { color: var(--smoke); font-weight: 500; }
+
+/* ═══════════════════════════════════════════════════════
+   LOADING SCREEN
+═══════════════════════════════════════════════════════ */
+#screen-loading {
+  background: var(--ink);
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+.load-inner {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 24px;
+  max-width: 320px; width: 100%;
+}
+.load-logo {
+  font-family: var(--display);
+  font-size: 22px; font-weight: 700;
+  color: var(--cream2); margin-bottom: 8px;
+  letter-spacing: -.5px;
+}
+.load-logo span { color: var(--amber); font-style: italic; }
+.load-ring {
+  position: relative;
+  width: 64px; height: 64px;
+}
+.load-ring-track {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  border: 2px solid var(--line2);
+  position: absolute;
+}
+.load-ring-fill {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--amber);
+  border-right-color: rgba(232,160,32,.3);
+  position: absolute;
+  animation: spin .8s linear infinite;
+}
+.load-pct {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  color: var(--amber);
+}
+.load-msg {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 1.5px; color: var(--fog);
+  text-align: center; min-height: 16px;
+}
+.load-bar-outer {
+  width: 100%; height: 2px;
+  background: var(--line);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.load-bar-inner {
+  height: 100%;
+  background: linear-gradient(90deg, var(--amber), var(--teal));
+  border-radius: 1px;
+  transition: width .4s cubic-bezier(.4,0,.2,1);
+  width: 0%;
+}
+.load-steps {
+  display: flex; gap: 8px;
+}
+.load-step {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--line2);
+  transition: background .3s;
+}
+.load-step.active { background: var(--amber); }
+.load-step.done { background: var(--emerald); }
+
+/* ═══════════════════════════════════════════════════════
+   TOPICS SCREEN
+═══════════════════════════════════════════════════════ */
+#screen-topics {
+  background: var(--ink);
+  padding: 0;
+}
+.topics-page {
+  max-width: 820px; width: 100%;
+  margin: 0 auto;
+  padding: 80px 40px 80px;
+  animation: fadeUp .5s ease both;
+}
+.topics-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 48px;
+}
+.topics-breadcrumb {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 10px; color: var(--smoke);
+  letter-spacing: 1.5px;
+}
+.topics-breadcrumb a {
+  color: var(--amber); cursor: pointer; text-decoration: none;
+  transition: color .2s;
+}
+.topics-breadcrumb a:hover { color: var(--amber2); }
+.topics-breadcrumb span { color: var(--mist); }
+.btn-back {
+  display: flex; align-items: center; gap: 8px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--fog);
+  font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
+  padding: 9px 16px; border-radius: 6px;
+  cursor: pointer; transition: all .2s;
+  text-transform: uppercase;
+}
+.btn-back:hover { border-color: var(--line2); color: var(--cream); }
+.topics-headline {
+  font-family: var(--display);
+  font-size: 42px; font-weight: 700;
+  color: var(--cream2); margin-bottom: 8px;
+  letter-spacing: -1px;
+}
+.topics-sub {
+  font-size: 13px; color: var(--smoke);
+  margin-bottom: 36px;
+}
+.topics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.tcard {
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 20px 22px;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 16px;
+  transition: all .2s;
+  position: relative;
+  overflow: hidden;
+}
+.tcard::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--teal);
+  transform: scaleY(0); transform-origin: bottom;
+  transition: transform .2s;
+}
+.tcard:hover { border-color: rgba(58,184,200,.3); background: var(--ink3); transform: translateX(4px); }
+.tcard:hover::before { transform: scaleY(1); }
+.tcard-num {
+  font-family: var(--mono); font-size: 20px; font-weight: 700;
+  color: var(--line2); min-width: 40px; line-height: 1;
+}
+.tcard-info { flex: 1; }
+.tcard-name { font-size: 14px; font-weight: 600; color: var(--cream); margin-bottom: 3px; }
+.tcard-count { font-family: var(--mono); font-size: 9px; color: var(--smoke); letter-spacing: 1px; }
+.tcard-arrow { color: var(--mist); font-size: 16px; transition: all .2s; }
+.tcard:hover .tcard-arrow { color: var(--teal); transform: translateX(4px); }
+.tcard:hover .tcard-num { color: var(--teal); }
+
+/* ═══════════════════════════════════════════════════════
+   EXAM SCREEN
+═══════════════════════════════════════════════════════ */
+#screen-exam {
+  background: var(--ink);
+  flex-direction: column;
+}
+
+/* EXAM HEADER */
+.exam-topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(11,14,20,.92);
+  backdrop-filter: blur(24px) saturate(1.5);
+  border-bottom: 1px solid var(--line);
+}
+.exam-topbar-inner {
+  max-width: 900px; margin: 0 auto;
+  padding: 0 32px;
+  display: flex; align-items: center; gap: 20px;
+  height: 64px;
+}
+.exam-course-pill {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--amber);
+  background: var(--ambersoft);
+  border: 1px solid rgba(232,160,32,.2);
+  padding: 5px 12px; border-radius: 100px;
+  white-space: nowrap;
+}
+.exam-progress-wrap { flex: 1; min-width: 0; }
+.exam-progress-labels {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px;
+}
+.exam-progress-q {
+  font-family: var(--mono); font-size: 9px; color: var(--smoke);
+  letter-spacing: 1px;
+}
+.exam-progress-ans {
+  font-family: var(--mono); font-size: 9px; color: var(--fog);
+}
+.exam-progress-track {
+  height: 3px; background: var(--line);
+  border-radius: 2px; overflow: hidden;
+}
+.exam-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--amber), var(--teal));
+  border-radius: 2px;
+  transition: width .5s cubic-bezier(.4,0,.2,1);
+}
+.exam-timer-wrap {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+}
+.exam-timer {
+  font-family: var(--mono); font-weight: 700;
+  font-size: 24px; letter-spacing: 2px;
+  color: var(--cream2); line-height: 1;
+  min-width: 86px; text-align: right;
+  transition: color .3s;
+}
+.exam-timer.warning { color: var(--rose); animation: blink 1s ease infinite; }
+.exam-timer.infinity { font-size: 18px; letter-spacing: 0; }
+.exam-timer-lbl {
+  font-family: var(--mono); font-size: 7px;
+  letter-spacing: 2px; color: var(--mist);
+  text-transform: uppercase;
+}
+
+/* EXAM LAYOUT — sidebar + main */
+.exam-layout {
+  flex: 1;
+  max-width: 900px; margin: 0 auto;
+  width: 100%; padding: 0 32px;
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 32px;
+  align-items: start;
+}
+.exam-main { padding: 40px 0; }
+.exam-sidebar { padding: 32px 0; position: sticky; top: 80px; }
+
+/* QUESTION CARD */
+.q-card {
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  padding: 36px;
+  margin-bottom: 20px;
+  animation: fadeUp .35s ease both;
+}
+.q-card-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 24px;
+}
+.q-badge-num {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  color: var(--ink); background: var(--amber);
+  padding: 4px 10px; border-radius: 4px;
+  letter-spacing: 1px;
+}
+.q-badge-topic {
+  font-family: var(--mono); font-size: 9px;
+  color: var(--teal);
+  background: rgba(58,184,200,.07);
+  border: 1px solid rgba(58,184,200,.2);
+  padding: 4px 10px; border-radius: 4px;
+  letter-spacing: 1px;
+}
+.q-badge-source {
+  font-family: var(--mono); font-size: 9px;
+  color: var(--smoke);
+  background: var(--ink4);
+  border: 1px solid var(--line);
+  padding: 4px 10px; border-radius: 4px;
+  letter-spacing: 1px;
+  margin-left: auto;
+}
+.q-text {
+  font-family: var(--display);
+  font-size: clamp(16px, 2.5vw, 22px);
+  line-height: 1.55;
+  color: var(--cream2);
+  font-weight: 400;
+}
+
+/* ANSWER OPTIONS */
+.options-list {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.opt-btn {
+  position: relative;
+  display: flex; align-items: center;
+  gap: 16px;
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .15s;
+  text-align: left;
+  width: 100%;
+  overflow: hidden;
+  animation: slideIn .3s ease both;
+}
+.opt-btn:nth-child(1) { animation-delay: .05s }
+.opt-btn:nth-child(2) { animation-delay: .1s }
+.opt-btn:nth-child(3) { animation-delay: .15s }
+.opt-btn:nth-child(4) { animation-delay: .2s }
+
+.opt-btn::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(232,160,32,.04), transparent);
+  opacity: 0; transition: opacity .15s;
+}
+.opt-btn:hover:not(:disabled) {
+  border-color: rgba(232,160,32,.4);
+  background: var(--ink3);
+  transform: translateX(6px);
+}
+.opt-btn:hover:not(:disabled)::before { opacity: 1; }
+.opt-btn:disabled { cursor: default; }
+
+.opt-letter {
+  width: 34px; height: 34px;
+  border: 1.5px solid var(--line2);
+  border-radius: 8px;
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--smoke);
+  transition: all .15s;
+  background: var(--ink3);
+}
+.opt-text {
+  font-size: 14px; line-height: 1.5;
+  color: var(--cream); flex: 1;
+}
+.opt-indicator {
+  width: 18px; height: 18px; border-radius: 50%;
+  flex-shrink: 0; opacity: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+  transition: opacity .2s;
+}
+
+/* Option states */
+.opt-btn.selected {
+  border-color: var(--teal);
+  background: rgba(58,184,200,.06);
+}
+.opt-btn.selected .opt-letter {
+  background: var(--teal); border-color: var(--teal);
+  color: var(--ink);
+}
+.opt-btn.correct {
+  border-color: var(--emerald);
+  background: rgba(46,192,138,.06);
+}
+.opt-btn.correct .opt-letter {
+  background: var(--emerald); border-color: var(--emerald);
+  color: var(--ink);
+}
+.opt-btn.correct .opt-indicator { opacity: 1; color: var(--emerald); }
+.opt-btn.wrong {
+  border-color: var(--rose);
+  background: rgba(224,64,80,.06);
+}
+.opt-btn.wrong .opt-letter {
+  background: var(--rose); border-color: var(--rose); color: #fff;
+}
+.opt-btn.wrong .opt-indicator { opacity: 1; color: var(--rose); }
+.opt-btn.show-correct { border-color: rgba(46,192,138,.35); }
+.opt-btn.show-correct .opt-letter { border-color: var(--emerald); color: var(--emerald); }
+
+/* EXPLANATION */
+.exp-panel {
+  display: none;
+  background: var(--ink3);
+  border: 1px solid var(--line2);
+  border-left: 3px solid var(--amber);
+  border-radius: 0 var(--r) var(--r) 0;
+  padding: 18px 22px;
+  margin-top: 20px;
+  animation: fadeUp .3s ease both;
+}
+.exp-panel.show { display: block; }
+.exp-eyebrow {
+  font-family: var(--mono); font-size: 8px;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--amber); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.exp-eyebrow::after { content:''; flex:1; height:1px; background:rgba(232,160,32,.2); }
+.exp-text { font-size: 13px; color: var(--fog); line-height: 1.8; }
+
+/* EXAM NAVIGATION */
+.exam-nav {
+  max-width: 900px; margin: 0 auto;
+  width: 100%; padding: 0 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 16px;
+  padding-bottom: 40px;
+  border-top: 1px solid var(--line);
+  gap: 12px;
+}
+.btn-ghost {
+  display: flex; align-items: center; gap: 8px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--fog);
+  font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
+  padding: 11px 20px; border-radius: 8px;
+  cursor: pointer; transition: all .2s;
+  text-transform: uppercase;
+}
+.btn-ghost:hover { border-color: var(--line2); color: var(--cream); background: var(--ink2); }
+.btn-ghost:disabled { opacity: .25; cursor: default; }
+.btn-ghost:disabled:hover { border-color: var(--line); color: var(--fog); background: transparent; }
+.btn-danger-submit {
+  background: var(--amber);
+  color: var(--ink);
+  font-family: var(--mono); font-weight: 700;
+  font-size: 10px; letter-spacing: 2px;
+  padding: 12px 28px; border: none;
+  border-radius: 8px; cursor: pointer;
+  transition: all .2s;
+  text-transform: uppercase;
+}
+.btn-danger-submit:hover {
+  background: var(--amber2);
+  box-shadow: 0 6px 24px rgba(232,160,32,.35);
+}
+
+/* SIDEBAR */
+.sidebar-label {
+  font-family: var(--mono); font-size: 8px;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--mist); margin-bottom: 12px;
+}
+.palette-grid {
+  display: grid; grid-template-columns: repeat(5,1fr);
+  gap: 5px; margin-bottom: 24px;
+}
+.pdot {
+  aspect-ratio: 1;
+  border-radius: 5px;
+  font-family: var(--mono); font-size: 8px; font-weight: 500;
+  border: 1px solid var(--line);
+  background: var(--ink3);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--mist);
+  transition: all .12s;
+}
+.pdot:hover { border-color: var(--amber); color: var(--cream); }
+.pdot.answered { background: rgba(58,184,200,.12); border-color: rgba(58,184,200,.4); color: var(--teal2); }
+.pdot.current { background: var(--amber); border-color: var(--amber); color: var(--ink); font-weight: 700; }
+.pdot.answered.current { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+
+.sidebar-legend { display: flex; flex-direction: column; gap: 8px; }
+.legend-row {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 9px; color: var(--smoke);
+  letter-spacing: 1px;
+}
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 3px; flex-shrink: 0;
+}
+.legend-dot.current { background: var(--amber); }
+.legend-dot.answered { background: rgba(58,184,200,.4); border: 1px solid var(--teal); }
+.legend-dot.unanswered { background: var(--ink3); border: 1px solid var(--line); }
+
+/* ═══════════════════════════════════════════════════════
+   RESULTS SCREEN
+═══════════════════════════════════════════════════════ */
+#screen-results {
+  background: var(--ink);
+  align-items: center;
+  padding: 80px 20px;
+}
+.results-page {
+  max-width: 860px; width: 100%;
+  display: flex; flex-direction: column; gap: 24px;
+  animation: fadeUp .6s ease both;
+}
+
+/* SCORE HERO */
+.score-hero {
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  padding: 48px 40px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 48px;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+.score-hero::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, var(--amber), var(--teal), var(--emerald));
+}
+.score-hero-grade {
+  font-family: var(--display);
+  font-size: 120px; font-weight: 900;
+  line-height: .85;
+  letter-spacing: -4px;
+}
+.score-hero-grade.A { color: var(--emerald2); text-shadow: 0 0 60px rgba(80,212,160,.2); }
+.score-hero-grade.B { color: var(--teal2); text-shadow: 0 0 60px rgba(94,208,220,.2); }
+.score-hero-grade.C { color: var(--amber2); text-shadow: 0 0 60px rgba(244,188,80,.2); }
+.score-hero-grade.D, .score-hero-grade.F { color: var(--rose2); text-shadow: 0 0 60px rgba(240,96,112,.2); }
+.score-hero-pct {
+  font-family: var(--display);
+  font-size: 52px; font-weight: 700;
+  color: var(--cream2); letter-spacing: -1px;
+  margin-bottom: 4px;
+}
+.score-hero-fraction {
+  font-family: var(--mono); font-size: 12px;
+  color: var(--smoke); margin-bottom: 16px;
+  letter-spacing: 1px;
+}
+.score-hero-remark {
+  font-size: 16px; color: var(--fog);
+  line-height: 1.6; max-width: 360px;
+}
+.score-hero-tags {
+  display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;
+}
+.score-tag {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 5px 12px; border-radius: 100px;
+  border: 1px solid var(--line2); color: var(--smoke);
+}
+
+/* STAT CARDS */
+.result-stats {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 12px;
+}
+.rstat {
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 22px 20px;
+  text-align: center;
+  position: relative; overflow: hidden;
+}
+.rstat::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+}
+.rstat.correct::after { background: var(--emerald); }
+.rstat.wrong::after { background: var(--rose); }
+.rstat.skipped::after { background: var(--mist); }
+.rstat.time::after { background: var(--teal); }
+.rstat-val {
+  font-family: var(--display);
+  font-size: 38px; font-weight: 700;
+  margin-bottom: 4px; line-height: 1;
+  animation: numberUp .5s ease both;
+}
+.rstat.correct .rstat-val { color: var(--emerald2); }
+.rstat.wrong .rstat-val { color: var(--rose2); }
+.rstat.skipped .rstat-val { color: var(--smoke); }
+.rstat.time .rstat-val { color: var(--teal2); font-size: 28px; }
+.rstat-lbl {
+  font-family: var(--mono); font-size: 8px;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--mist);
+}
+
+/* TOPIC BREAKDOWN */
+.topic-breakdown {
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+}
+.section-header {
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.section-title {
+  font-family: var(--display);
+  font-size: 18px; font-weight: 700;
+  color: var(--cream2);
+}
+.section-meta {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 1.5px; color: var(--smoke);
+}
+.bd-row {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--line);
+  transition: background .15s;
+}
+.bd-row:last-child { border: none; }
+.bd-row:hover { background: rgba(255,255,255,.01); }
+.bd-topic { flex: 1; font-size: 13px; color: var(--cream); }
+.bd-bar-wrap {
+  width: 140px; height: 4px;
+  background: var(--line);
+  border-radius: 2px; overflow: hidden;
+}
+.bd-bar-fill { height: 100%; border-radius: 2px; transition: width .8s cubic-bezier(.4,0,.2,1); }
+.bd-score {
+  font-family: var(--mono); font-size: 11px;
+  min-width: 40px; text-align: right; font-weight: 500;
+}
+
+/* REVIEW SECTION */
+.review-section {
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+}
+.rev-item {
+  padding: 22px 28px;
+  border-bottom: 1px solid var(--line);
+  transition: background .15s;
+}
+.rev-item:last-child { border: none; }
+.rev-item:hover { background: rgba(255,255,255,.01); }
+.rev-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 10px;
+}
+.rev-meta {
+  font-family: var(--mono); font-size: 9px;
+  color: var(--mist); letter-spacing: 1px;
+}
+.rev-status {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 1px; white-space: nowrap;
+  padding: 3px 8px; border-radius: 4px;
+}
+.rev-status.correct { background: rgba(46,192,138,.1); color: var(--emerald2); }
+.rev-status.wrong { background: rgba(224,64,80,.1); color: var(--rose2); }
+.rev-status.skipped { background: var(--ink4); color: var(--smoke); }
+.rev-q {
+  font-family: var(--display);
+  font-size: 14px; color: var(--fog);
+  line-height: 1.6; margin-bottom: 12px;
+}
+.rev-answers { display: flex; flex-direction: column; gap: 5px; }
+.rev-ans-row {
+  font-family: var(--mono); font-size: 10px;
+  padding: 6px 12px; border-radius: 5px;
+  letter-spacing: .5px; line-height: 1.5;
+}
+.rev-ans-row.your-correct { background: rgba(46,192,138,.08); color: var(--emerald2); border-left: 2px solid var(--emerald); }
+.rev-ans-row.your-wrong { background: rgba(224,64,80,.08); color: var(--rose2); border-left: 2px solid var(--rose); }
+.rev-ans-row.correct-ans { background: rgba(46,192,138,.05); color: var(--emerald); border-left: 2px solid rgba(46,192,138,.4); }
+.rev-exp {
+  font-size: 12px; color: var(--smoke);
+  padding: 10px 14px;
+  background: var(--ink);
+  border-radius: 6px; line-height: 1.75;
+  margin-top: 8px;
+}
+
+/* RESULT ACTIONS */
+.result-actions {
+  display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+  padding: 8px 0;
+}
+.btn-result {
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  color: var(--fog);
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 2px; text-transform: uppercase;
+  padding: 13px 24px; border-radius: 8px;
+  cursor: pointer; transition: all .2s;
+}
+.btn-result:hover { border-color: var(--line2); color: var(--cream); background: var(--ink3); }
+.btn-result.primary {
+  background: var(--amber); color: var(--ink);
+  font-weight: 700; border-color: var(--amber);
+}
+.btn-result.primary:hover {
+  background: var(--amber2);
+  box-shadow: 0 6px 24px rgba(232,160,32,.35);
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .land-hero,
+  .land-form,
+  .topics-page,
+  .exam-topbar-inner,
+  .exam-layout,
+  .exam-nav,
+  .results-page {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .hero-stats {
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .exam-layout {
+    grid-template-columns: 1fr 200px;
+    gap: 24px;
+  }
+
+  .score-hero {
+    gap: 28px;
+  }
+}
+
+@media (max-width: 768px) {
+  .screen { min-height: 100dvh; }
+  .top-nav { padding: 16px 20px; }
+  .nav-badge { display: none; }
+  .land-hero { padding: 100px 20px 40px; }
+  .land-form { padding: 0 20px 80px; }
+  .hero-headline { letter-spacing: -1px; }
+  .hero-sub { margin-bottom: 40px; }
+  .hero-stats {
+    gap: 20px;
+    padding-bottom: 32px;
+    margin-bottom: 40px;
+  }
+  .hero-stats > div {
+    min-width: 120px;
+    flex: 1 1 140px;
+  }
+  .course-grid { grid-template-columns: 1fr; }
+  .mode-grid { grid-template-columns: 1fr; gap: 10px; }
+  .cfg-grid { grid-template-columns: 1fr; }
+  .cta-area { flex-direction: column; align-items: flex-start; }
+  .btn-launch { width: 100%; }
+  .topics-page { padding: 60px 20px; }
+  .topics-nav {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .topics-breadcrumb {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .topics-grid { grid-template-columns: 1fr; }
+  .exam-topbar-inner {
+    padding: 12px 16px;
+    height: auto;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .exam-progress-wrap { order: 3; width: 100%; }
+  .exam-timer-wrap {
+    margin-left: auto;
+    align-items: flex-end;
+  }
+  .exam-layout { grid-template-columns: 1fr; padding: 0 16px; }
+  .exam-sidebar { display: none; }
+  .exam-nav {
+    padding: 16px 16px 32px;
+    flex-wrap: wrap;
+  }
+  .exam-nav > * {
+    flex: 1 1 180px;
+    justify-content: center;
+  }
+  .q-card { padding: 24px 20px; }
+  .q-card-header {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .q-badge-source { margin-left: 0; }
+  .score-hero { grid-template-columns: 1fr; gap: 20px; text-align: center; padding: 36px 24px; }
+  .score-hero-grade { font-size: 80px; }
+  .score-hero-pct { font-size: 40px; }
+  .score-hero-remark {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .result-stats { grid-template-columns: repeat(2,1fr); }
+  .bd-bar-wrap { width: 80px; }
+  .rev-item, .bd-row { padding: 14px 20px; }
+  .section-header { padding: 16px 20px; }
+  .result-actions .btn-result {
+    flex: 1 1 220px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .land-hero { padding-top: 92px; }
+  .hero-eyebrow {
+    letter-spacing: 1.6px;
+    gap: 8px;
+  }
+  .hero-sub {
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 12px;
+  }
+  .hstat-num { font-size: 28px; }
+  .ccard,
+  .mcard,
+  .cfg-card,
+  .tcard,
+  .q-card,
+  .score-hero,
+  .rstat,
+  .rev-item,
+  .bd-row {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .ccard-header,
+  .cfg-value,
+  .tcard {
+    gap: 12px;
+  }
+  .btn-back,
+  .btn-ghost,
+  .btn-danger-submit,
+  .btn-result,
+  .btn-launch {
+    width: 100%;
+  }
+  .exam-course-pill { display: none; }
+  .exam-topbar-inner {
+    gap: 10px;
+    align-items: stretch;
+  }
+  .exam-timer {
+    min-width: 0;
+    font-size: 20px;
+    letter-spacing: 1px;
+  }
+  .q-text {
+    font-size: 18px;
+    line-height: 1.5;
+  }
+  .opt-btn {
+    padding: 14px 16px;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .opt-letter {
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
+  }
+  .opt-text,
+  .rev-q {
+    font-size: 13px;
+  }
+  .exp-panel {
+    padding: 16px;
+  }
+  .result-stats { grid-template-columns: 1fr; }
+  .section-header,
+  .rev-top,
+  .bd-row {
+    gap: 10px;
+  }
+  .bd-row,
+  .rev-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .bd-bar-wrap,
+  .bd-score {
+    width: 100%;
+    text-align: left;
+  }
+  .score-hero-grade { font-size: 64px; }
+  .score-hero-pct { font-size: 34px; }
+  .score-hero-fraction,
+  .score-hero-remark,
+  .topics-sub,
+  .btn-launch-hint {
+    font-size: 12px;
+  }
+  .load-inner { padding: 0 20px; }
+  .result-actions {
+    flex-direction: column;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     LANDING SCREEN
+════════════════════════════════════════════════ -->
+<div id="screen-landing" class="screen active">
+  <div class="bg-geo"></div>
+  <div class="bg-lines"></div>
+
+  <!-- TOP NAV -->
+  <nav class="top-nav">
+    <div class="nav-logo">Physics<span>Desk</span></div>
+    <div class="nav-badge">
+      <div class="nav-dot"></div>
+      <span>CBT SIMULATOR · UNIUYO</span>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <div class="land-hero">
+    <div class="hero-eyebrow stagger-1">
+      <span class="hero-eyebrow-line"></span>
+      University of Uyo — Department of Physics
+    </div>
+    <h1 class="hero-headline stagger-2">
+      Ace Your<br>
+      Physics <em>Exams.</em><br>
+      <span class="hl-outline">Every Time.</span>
+    </h1>
+    <p class="hero-sub stagger-3">
+      The most comprehensive CBT practice platform for PHY 111 and PHY 117.
+      Fully offline practice, past questions, and instant analytics.
+    </p>
+    <div class="hero-stats stagger-4">
+      <div>
+        <div class="hstat-num" id="stat-total-q">206</div>
+        <div class="hstat-lbl">Questions</div>
+      </div>
+      <div>
+        <div class="hstat-num">2</div>
+        <div class="hstat-lbl">Courses</div>
+      </div>
+      <div>
+        <div class="hstat-num">16</div>
+        <div class="hstat-lbl">Topics</div>
+      </div>
+      <div>
+        <div class="hstat-num">3</div>
+        <div class="hstat-lbl">Study Modes</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORM -->
+  <div class="land-form">
+
+    <!-- COURSE -->
+    <div class="stagger-4">
+      <div class="form-section-title">01 — Choose your course</div>
+      <div class="course-grid">
+        <div class="ccard" id="card-PHY111" onclick="selectCourse('PHY111')">
+          <div class="ccard-glow"></div>
+          <div class="ccard-header">
+            <div class="ccard-icon">⚛️</div>
+            <div class="ccard-check" id="chk-PHY111">✓</div>
+          </div>
+          <div class="ccard-code">PHY 111</div>
+          <div class="ccard-name">General Physics I</div>
+          <div class="ccard-desc">Kinematics · Newton's Laws · Vectors · Work & Energy · Momentum · SHM · Rotational Dynamics · Static Equilibrium · Gravitation</div>
+          <div class="ccard-footer">
+            <div class="ccard-count" id="cnt-PHY111">— questions</div>
+            <div class="ccard-topics">10 topics</div>
+          </div>
+        </div>
+        <div class="ccard" id="card-PHY117" onclick="selectCourse('PHY117')">
+          <div class="ccard-glow"></div>
+          <div class="ccard-header">
+            <div class="ccard-icon">📐</div>
+            <div class="ccard-check" id="chk-PHY117">✓</div>
+          </div>
+          <div class="ccard-code">PHY 117</div>
+          <div class="ccard-name">Practical Physics</div>
+          <div class="ccard-desc">Graphical Analysis · Graph Transformation · Error Analysis · SHM & Pendulum · Circular Motion · Elasticity & Young's Modulus</div>
+          <div class="ccard-footer">
+            <div class="ccard-count" id="cnt-PHY117">— questions</div>
+            <div class="ccard-topics">6 topics</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODE -->
+    <div class="stagger-5">
+      <div class="form-section-title">02 — Select study mode</div>
+      <div class="mode-grid">
+        <div class="mcard" id="mode-exam" onclick="selectMode('exam')">
+          <div class="mcard-icon">⏱</div>
+          <div class="mcard-name">Timed Exam</div>
+          <div class="mcard-desc">Full CBT simulation. Countdown timer. No feedback until you submit — just like the real thing.</div>
+        </div>
+        <div class="mcard" id="mode-practice" onclick="selectMode('practice')">
+          <div class="mcard-icon">📖</div>
+          <div class="mcard-name">Practice Mode</div>
+          <div class="mcard-desc">See the explanation the moment you answer. Perfect for learning and understanding concepts.</div>
+        </div>
+        <div class="mcard" id="mode-topic" onclick="selectMode('topic')">
+          <div class="mcard-icon">🎯</div>
+          <div class="mcard-name">Topic Focus</div>
+          <div class="mcard-desc">Drill one specific topic to target your weak areas with laser precision.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIG -->
+    <div class="stagger-6">
+      <div class="form-section-title">03 — Configure session</div>
+      <div class="cfg-grid">
+        <div class="cfg-card">
+          <span class="cfg-label">Number of Questions</span>
+          <div class="cfg-value">
+            <span class="cfg-value-icon">📝</span>
+            <select class="cfg-sel" id="cfg-count">
+              <option value="10">10 Questions</option>
+              <option value="20" selected>20 Questions</option>
+              <option value="30">30 Questions</option>
+              <option value="50">50 Questions</option>
+            </select>
+          </div>
+        </div>
+        <div class="cfg-card" id="cfg-time-box">
+          <span class="cfg-label">Time Limit</span>
+          <div class="cfg-value">
+            <span class="cfg-value-icon">⏰</span>
+            <select class="cfg-sel" id="cfg-time">
+              <option value="10">10 Minutes</option>
+              <option value="20" selected>20 Minutes</option>
+              <option value="30">30 Minutes</option>
+              <option value="60">60 Minutes</option>
+            </select>
+          </div>
+        </div>
+        <div class="cfg-card">
+          <span class="cfg-label">Question Source</span>
+          <div class="cfg-value">
+            <span class="cfg-value-icon">📦</span>
+            <span class="cfg-sel">Offline Question Bank</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta-area stagger-6">
+      <button class="btn-launch" id="btn-start" onclick="startSession()" disabled>
+        Begin Session →
+      </button>
+      <p class="btn-launch-hint">Select a <strong>course</strong> and <strong>mode</strong> to start</p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     LOADING SCREEN
+════════════════════════════════════════════════ -->
+<div id="screen-loading" class="screen">
+  <div class="load-inner">
+    <div class="load-logo">Physics<span>Desk</span></div>
+    <div class="load-ring">
+      <div class="load-ring-track"></div>
+      <div class="load-ring-fill"></div>
+      <div class="load-pct" id="load-pct">0%</div>
+    </div>
+    <div class="load-msg" id="load-status">Initialising...</div>
+    <div class="load-bar-outer">
+      <div class="load-bar-inner" id="load-bar"></div>
+    </div>
+    <div class="load-steps">
+      <div class="load-step" id="lstep-0"></div>
+      <div class="load-step" id="lstep-1"></div>
+      <div class="load-step" id="lstep-2"></div>
+      <div class="load-step" id="lstep-3"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     TOPICS SCREEN
+════════════════════════════════════════════════ -->
+<div id="screen-topics" class="screen">
+  <div class="topics-page">
+    <div class="topics-nav">
+      <div class="topics-breadcrumb">
+        <a onclick="showScreen('landing')">HOME</a>
+        <span>/</span>
+        <span id="topics-course-crumb">PHY 111</span>
+        <span>/</span>
+        <span>TOPICS</span>
+      </div>
+      <button class="btn-back" onclick="showScreen('landing')">← Back</button>
+    </div>
+    <div class="hero-eyebrow" style="margin-bottom:16px;display:inline-flex">
+      <span class="hero-eyebrow-line"></span>
+      <span id="topics-course-label">PHY 111 · General Physics I</span>
+    </div>
+    <div class="topics-headline">Select a Topic</div>
+    <p class="topics-sub">Choose the topic you want to drill — you'll get focused questions on that area only.</p>
+    <div class="topics-grid" id="topics-grid"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     EXAM SCREEN
+════════════════════════════════════════════════ -->
+<div id="screen-exam" class="screen">
+
+  <!-- TOP BAR -->
+  <div class="exam-topbar">
+    <div class="exam-topbar-inner">
+      <div class="exam-course-pill" id="ex-tag">PHY 111 · General Physics I</div>
+      <div class="exam-progress-wrap">
+        <div class="exam-progress-labels">
+          <span class="exam-progress-q" id="prog-lbl">Question 1 of 20</span>
+          <span class="exam-progress-ans" id="prog-ans">0 answered</span>
+        </div>
+        <div class="exam-progress-track">
+          <div class="exam-progress-bar" id="prog-fill" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="exam-timer-wrap">
+        <div class="exam-timer" id="ex-timer">20:00</div>
+        <div class="exam-timer-lbl" id="ex-timer-lbl">REMAINING</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LAYOUT -->
+  <div class="exam-layout">
+
+    <!-- MAIN QUESTION AREA -->
+    <div class="exam-main">
+      <div class="q-card" id="q-card">
+        <div class="q-card-header">
+          <div class="q-badge-num" id="q-num">Q 01</div>
+          <div class="q-badge-topic" id="q-ttag">Topic</div>
+          <div class="q-badge-source" id="q-stag">PAST Q</div>
+        </div>
+        <div class="q-text" id="q-text">Loading question...</div>
+      </div>
+
+      <div class="options-list" id="opts"></div>
+
+      <div class="exp-panel" id="exp-box">
+        <div class="exp-eyebrow">Explanation</div>
+        <div class="exp-text" id="exp-text"></div>
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="exam-sidebar">
+      <div class="sidebar-label">Question Map</div>
+      <div class="palette-grid" id="palette"></div>
+      <div class="sidebar-legend">
+        <div class="legend-row">
+          <div class="legend-dot current"></div>Current
+        </div>
+        <div class="legend-row">
+          <div class="legend-dot answered"></div>Answered
+        </div>
+        <div class="legend-row">
+          <div class="legend-dot unanswered"></div>Unanswered
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- NAV -->
+  <div class="exam-nav">
+    <button class="btn-ghost" id="btn-prev" onclick="nav(-1)">← Previous</button>
+    <button class="btn-danger-submit" id="btn-finish" onclick="finishExam()">Submit Exam</button>
+    <button class="btn-ghost" id="btn-next" onclick="nav(1)">Next →</button>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════
+     RESULTS SCREEN
+════════════════════════════════════════════════ -->
+<div id="screen-results" class="screen">
+  <div class="results-page">
+
+    <!-- SCORE HERO -->
+    <div class="score-hero">
+      <div class="score-hero-grade" id="res-grade">A</div>
+      <div class="score-hero-info">
+        <div class="score-hero-pct" id="res-pct">90%</div>
+        <div class="score-hero-fraction" id="res-score">18 / 20 CORRECT</div>
+        <div class="score-hero-remark" id="res-remark">Outstanding performance!</div>
+        <div class="score-hero-tags" id="res-tags"></div>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="result-stats">
+      <div class="rstat correct">
+        <div class="rstat-val" id="st-c">0</div>
+        <div class="rstat-lbl">Correct</div>
+      </div>
+      <div class="rstat wrong">
+        <div class="rstat-val" id="st-w">0</div>
+        <div class="rstat-lbl">Wrong</div>
+      </div>
+      <div class="rstat skipped">
+        <div class="rstat-val" id="st-s">0</div>
+        <div class="rstat-lbl">Skipped</div>
+      </div>
+      <div class="rstat time">
+        <div class="rstat-val" id="st-t">—</div>
+        <div class="rstat-lbl">Time Used</div>
+      </div>
+    </div>
+
+    <!-- TOPIC BREAKDOWN -->
+    <div class="topic-breakdown">
+      <div class="section-header">
+        <div class="section-title">Performance by Topic</div>
+        <div class="section-meta" id="bd-meta">—</div>
+      </div>
+      <div id="bd-rows"></div>
+    </div>
+
+    <!-- REVIEW -->
+    <div class="review-section">
+      <div class="section-header">
+        <div class="section-title">Question Review</div>
+        <div class="section-meta" id="rev-count"></div>
+      </div>
+      <div id="rev-items"></div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="result-actions">
+      <button class="btn-result" onclick="showScreen('landing')">← New Session</button>
+      <button class="btn-result" onclick="retryExam()">↺ Retry Same</button>
+      <button class="btn-result primary" onclick="showScreen('landing')">🎯 Practice Weak Topics</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const QUESTION_BANK = {
+
+// ════════════════════════════════════════════════════════════════
+// PHY 111 — GENERAL PHYSICS I  (110 questions)
+// ════════════════════════════════════════════════════════════════
+PHY111: [
+
+// ── DIMENSIONAL ANALYSIS (12) ──────────────────────────────────
+{topic:"Dimensional Analysis",q:"The dimension of force is:",opts:["MLT⁻¹","MLT⁻²","ML²T⁻²","M²LT⁻²"],ans:1,exp:"Force = mass × acceleration. Dimensions: M × LT⁻² = MLT⁻²."},
+{topic:"Dimensional Analysis",q:"Pressure has the same dimensions as:",opts:["Force","Energy","Energy per unit volume","Momentum"],ans:2,exp:"Pressure = Force/Area = MLT⁻²/L² = ML⁻¹T⁻². Energy per unit volume = ML²T⁻²/L³ = ML⁻¹T⁻². They are equal."},
+{topic:"Dimensional Analysis",q:"The dimension of power is:",opts:["ML²T⁻²","ML²T⁻³","MLT⁻²","ML³T⁻²"],ans:1,exp:"Power = Work/time = ML²T⁻²/T = ML²T⁻³."},
+{topic:"Dimensional Analysis",q:"Which equation is dimensionally correct for displacement S with initial velocity u, acceleration a, time t?",opts:["S = ut² + ½at","S = ut + ½at²","S = u²t + at","S = ut² + at²"],ans:1,exp:"Each term must have dimension L. ut = (LT⁻¹)(T) = L ✓. ½at² = (LT⁻²)(T²) = L ✓."},
+{topic:"Dimensional Analysis",q:"The SI unit of momentum is:",opts:["N","N·m","kg·m/s","kg·m/s²"],ans:2,exp:"Momentum = mass × velocity = kg × m/s = kg·m·s⁻¹. This is equivalent to N·s."},
+{topic:"Dimensional Analysis",q:"If T = km^x l^y g^z for a simple pendulum, dimensional analysis gives x =",opts:["1","0","½","-½"],ans:1,exp:"Dimensional analysis of T = km^x l^y g^z yields x = 0. The period of a simple pendulum is independent of mass."},
+{topic:"Dimensional Analysis",q:"The dimension of gravitational constant G in F = Gm₁m₂/r² is:",opts:["M⁻¹L³T⁻²","M⁻²L³T⁻²","ML³T⁻²","M⁻¹L²T⁻²"],ans:0,exp:"From F = Gm₁m₂/r²: G = Fr²/m₁m₂ = (MLT⁻²)(L²)/M² = M⁻¹L³T⁻²."},
+{topic:"Dimensional Analysis",q:"Which of these is a fundamental (base) SI unit?",opts:["Newton","Joule","Kelvin","Watt"],ans:2,exp:"Kelvin (K) is a fundamental SI unit for temperature. Newton, Joule, and Watt are all derived units."},
+{topic:"Dimensional Analysis",q:"The dimension of angular velocity ω is:",opts:["T⁻¹","LT⁻¹","L⁻¹T","MLT⁻¹"],ans:0,exp:"Angular velocity ω = angle/time = radians/second. Since radians are dimensionless, ω has dimension T⁻¹."},
+{topic:"Dimensional Analysis",q:"Velocity gradient has dimensions:",opts:["LT⁻¹","L⁻¹T","T⁻¹","LT"],ans:2,exp:"Velocity gradient = velocity/distance = (LT⁻¹)/L = T⁻¹."},
+{topic:"Dimensional Analysis",q:"The number of fundamental quantities in the SI system is:",opts:["5","6","7","9"],ans:2,exp:"The SI system has 7 fundamental quantities: length, mass, time, electric current, temperature, luminous intensity, and amount of substance."},
+{topic:"Dimensional Analysis",q:"Surface tension has dimensions:",opts:["MT⁻²","ML⁻¹T⁻²","MLT⁻²","ML²T⁻²"],ans:0,exp:"Surface tension = Force/length = MLT⁻²/L = MT⁻². Its SI unit is N/m."},
+
+// ── KINEMATICS (16) ────────────────────────────────────────────
+{topic:"Kinematics",q:"A body starts from rest and accelerates uniformly at 4 m/s². Its velocity after 5 s is:",opts:["0.8 m/s","10 m/s","20 m/s","40 m/s"],ans:2,exp:"v = u + at = 0 + 4×5 = 20 m/s."},
+{topic:"Kinematics",q:"A car decelerates from 30 m/s to rest in 6 s. Its deceleration is:",opts:["3 m/s²","4 m/s²","5 m/s²","6 m/s²"],ans:2,exp:"v = u + at → 0 = 30 + a(6) → a = -5 m/s². Deceleration = 5 m/s²."},
+{topic:"Kinematics",q:"A stone is dropped from rest. Distance fallen in 3 s (g = 10 m/s²) is:",opts:["15 m","30 m","45 m","90 m"],ans:2,exp:"S = ut + ½gt² = 0 + ½(10)(3²) = 5 × 9 = 45 m."},
+{topic:"Kinematics",q:"A ball is thrown upward at 20 m/s. Maximum height reached (g = 10 m/s²) is:",opts:["10 m","20 m","40 m","100 m"],ans:1,exp:"At max height, v = 0. v² = u² + 2aS → 0 = 400 - 2(10)S → S = 400/20 = 20 m."},
+{topic:"Kinematics",q:"A projectile is launched at 45° with speed u. Its range R equals:",opts:["u²/g","u²/2g","2u²/g","u²/4g"],ans:0,exp:"R = u²sin2θ/g = u²sin90°/g = u²(1)/g = u²/g. Range is maximum at θ = 45°."},
+{topic:"Kinematics",q:"The time of flight of a projectile launched at angle θ with speed u is:",opts:["2u sinθ/g","u sinθ/g","2u cosθ/g","u²sin2θ/g"],ans:0,exp:"Time of flight T = 2u sinθ/g. This is the total time from launch to landing."},
+{topic:"Kinematics",q:"A body moves with constant velocity. Its acceleration is:",opts:["Maximum","Constant but non-zero","Zero","Equal to velocity"],ans:2,exp:"Constant velocity means no change in speed or direction. Acceleration = rate of change of velocity = 0."},
+{topic:"Kinematics",q:"A stone is thrown horizontally at 15 m/s from a 45 m high cliff (g = 10 m/s²). Time to reach the ground:",opts:["2 s","3 s","4 s","4.5 s"],ans:1,exp:"Vertical: S = ½gt² → 45 = ½(10)t² → t² = 9 → t = 3 s. Horizontal velocity doesn't affect vertical fall."},
+{topic:"Kinematics",q:"A car accelerates from 5 m/s to 25 m/s over 100 m. Its acceleration is:",opts:["2 m/s²","3 m/s²","4 m/s²","6 m/s²"],ans:1,exp:"v² = u² + 2aS → 625 = 25 + 2a(100) → 600 = 200a → a = 3 m/s²."},
+{topic:"Kinematics",q:"The slope of a velocity-time graph gives:",opts:["Displacement","Distance","Acceleration","Speed"],ans:2,exp:"The gradient (slope) of a v-t graph = Δv/Δt = acceleration. The area under a v-t graph gives displacement."},
+{topic:"Kinematics",q:"A body travels 60 m in first 6 s and 80 m in next 4 s. Average velocity for 10 s:",opts:["10 m/s","14 m/s","16 m/s","20 m/s"],ans:1,exp:"Average velocity = total displacement/total time = (60+80)/10 = 140/10 = 14 m/s."},
+{topic:"Kinematics",q:"Maximum height of a projectile launched at speed u and angle θ is:",opts:["u² sin²θ / g","u² sin²θ / 2g","u² sinθ / g","u² cos²θ / 2g"],ans:1,exp:"H = u²sin²θ/2g. At maximum height, the vertical velocity component is zero."},
+{topic:"Kinematics",q:"Instantaneous velocity is found by:",opts:["Total displacement / total time","Differentiation: dx/dt","Integration of acceleration","Average of initial and final velocities"],ans:1,exp:"Instantaneous velocity = dx/dt, the derivative of displacement with respect to time. Average velocity = Δx/Δt."},
+{topic:"Kinematics",q:"A ball thrown vertically upward returns to its starting point. Total displacement is:",opts:["Equal to twice the max height","Equal to max height","Zero","Depends on initial speed"],ans:2,exp:"Displacement is a vector — the change in position from start to end. Since it returns to the same point, net displacement = 0."},
+{topic:"Kinematics",q:"If u = 0 and a is constant, then S ∝",opts:["t","t²","t³","1/t"],ans:1,exp:"S = ½at². With u = 0 and a constant, S = ½at², so S is proportional to t²."},
+{topic:"Kinematics",q:"A body with initial velocity 10 m/s decelerates at 2 m/s². Distance before stopping:",opts:["5 m","15 m","25 m","50 m"],ans:2,exp:"v² = u² + 2aS → 0 = 100 - 4S → S = 25 m."},
+
+// ── VECTORS (10) ───────────────────────────────────────────────
+{topic:"Vectors",q:"Two forces of 3 N and 4 N act at right angles. Their resultant is:",opts:["1 N","5 N","7 N","12 N"],ans:1,exp:"R = √(3²+4²) = √(9+16) = √25 = 5 N. Classic 3-4-5 Pythagorean triple."},
+{topic:"Vectors",q:"The dot product a·b = |a||b|cosθ. For parallel vectors (θ=0°):",opts:["a·b = 0","a·b = |a||b|","a·b = -|a||b|","a·b = ½|a||b|"],ans:1,exp:"cos0° = 1, so a·b = |a||b|(1) = |a||b|. Dot product is maximum for parallel vectors."},
+{topic:"Vectors",q:"The cross product i × j equals:",opts:["1","k","−k","j"],ans:1,exp:"Following right-hand rule: i × j = k. The cyclic order is i→j→k→i for positive cross products."},
+{topic:"Vectors",q:"A vector of magnitude 10 N acts at 30° to the horizontal. Its horizontal component is:",opts:["5 N","5√3 N","10√3 N","10 N"],ans:1,exp:"Horizontal component = 10cos30° = 10 × (√3/2) = 5√3 ≈ 8.66 N."},
+{topic:"Vectors",q:"The resultant of two equal vectors P at angle θ between them is:",opts:["2P sinθ","2P cosθ","2P cos(θ/2)","P cos(θ/2)"],ans:2,exp:"Resultant = √(P²+P²+2P²cosθ) = P√(2+2cosθ) = P√(4cos²θ/2) = 2P cos(θ/2)."},
+{topic:"Vectors",q:"If a·b = 0 and a ≠ 0, b ≠ 0, then the vectors are:",opts:["Parallel","Anti-parallel","Perpendicular","Equal"],ans:2,exp:"a·b = |a||b|cosθ = 0 with non-zero vectors means cosθ = 0, so θ = 90°. The vectors are perpendicular."},
+{topic:"Vectors",q:"Work done W = F·d. If force and displacement are perpendicular, work done is:",opts:["Maximum","Equal to Fd","Zero","Fd/2"],ans:2,exp:"W = Fd cosθ. At θ = 90°, cos90° = 0, so W = 0. No work is done when force is perpendicular to displacement."},
+{topic:"Vectors",q:"The unit vector in the direction of vector A = 3i + 4j is:",opts:["3i + 4j","(3i + 4j)/5","(3i + 4j)/7","(3i + 4j)/25"],ans:1,exp:"|A| = √(3²+4²) = 5. Unit vector = A/|A| = (3i+4j)/5."},
+{topic:"Vectors",q:"Torque is an example of which product?",opts:["Scalar (dot) product","Vector (cross) product","Tensor product","Linear product"],ans:1,exp:"Torque τ = r × F is a vector (cross) product. The result is a vector perpendicular to both r and F."},
+{topic:"Vectors",q:"The parallelogram law states: if two vectors are represented by adjacent sides of a parallelogram, their resultant is:",opts:["The shorter diagonal","The longer diagonal","The diagonal through their common point","Either diagonal"],ans:2,exp:"The resultant is the diagonal passing through the point where the two vectors meet (their common origin). This is the parallelogram law of vector addition."},
+
+// ── NEWTON'S LAWS (12) ─────────────────────────────────────────
+{topic:"Newton's Laws",q:"A 5 kg object accelerates at 3 m/s². Net force acting on it:",opts:["8 N","1.67 N","15 N","2 N"],ans:2,exp:"F = ma = 5 × 3 = 15 N. Newton's Second Law of Motion."},
+{topic:"Newton's Laws",q:"A person of mass 60 kg in a lift accelerating downward at 3 m/s² (g=10 m/s²). Apparent weight:",opts:["420 N","540 N","600 N","780 N"],ans:0,exp:"N = m(g-a) = 60(10-3) = 60 × 7 = 420 N. Downward acceleration reduces apparent weight."},
+{topic:"Newton's Laws",q:"Impulse is defined as:",opts:["Force × distance","Mass × velocity","Force × time","Rate of change of momentum"],ans:2,exp:"Impulse = F × t = Δp (change in momentum). It is the product of force and time duration."},
+{topic:"Newton's Laws",q:"A 2 kg body falls freely. Force of gravity acting on it (g=10 m/s²):",opts:["2 N","5 N","20 N","10 N"],ans:2,exp:"Weight W = mg = 2 × 10 = 20 N. This acts downward regardless of whether it falls freely."},
+{topic:"Newton's Laws",q:"Newton's First Law (law of inertia) states a body at rest will remain at rest unless:",opts:["Its mass changes","An external net force acts on it","Its velocity changes","Its momentum changes"],ans:1,exp:"Newton's 1st Law: A body continues in its state of rest or uniform motion unless acted upon by an external net (unbalanced) force."},
+{topic:"Newton's Laws",q:"A 10 kg crate is pulled along a rough floor with 50 N force. If friction = 20 N, acceleration is:",opts:["2 m/s²","3 m/s²","5 m/s²","7 m/s²"],ans:1,exp:"Net force = 50 - 20 = 30 N. a = F/m = 30/10 = 3 m/s²."},
+{topic:"Newton's Laws",q:"A block slides down a frictionless incline at angle 30°. Its acceleration (g=10 m/s²):",opts:["5 m/s²","8.66 m/s²","10 m/s²","3 m/s²"],ans:0,exp:"a = g sinθ = 10 sin30° = 10 × 0.5 = 5 m/s²."},
+{topic:"Newton's Laws",q:"The coefficient of static friction μs = 0.4 for a 5 kg block (g=10 m/s²). Maximum static friction:",opts:["2 N","8 N","20 N","40 N"],ans:2,exp:"Maximum static friction = μsN = μsmg = 0.4 × 5 × 10 = 20 N."},
+{topic:"Newton's Laws",q:"A rocket ejects mass at high speed to move forward. This illustrates Newton's:",opts:["First Law","Second Law","Third Law","Law of Gravitation"],ans:2,exp:"Action-reaction (3rd Law): The rocket pushes gas backward; the gas pushes the rocket forward with equal and opposite force."},
+{topic:"Newton's Laws",q:"A 3 kg and 7 kg mass connected by a string over a frictionless pulley (Atwood machine). Net force on system:",opts:["30 N","40 N","70 N","100 N"],ans:1,exp:"Net force = (m₂-m₁)g = (7-3)×10 = 4×10 = 40 N. This drives the heavier side down."},
+{topic:"Newton's Laws",q:"In the Atwood machine (3 kg and 7 kg), acceleration of the system (g=10 m/s²):",opts:["2 m/s²","3 m/s²","4 m/s²","5 m/s²"],ans:2,exp:"a = (m₂-m₁)g/(m₁+m₂) = (7-3)×10/(7+3) = 40/10 = 4 m/s²."},
+{topic:"Newton's Laws",q:"A person of mass 70 kg stands in a lift accelerating upward at 2 m/s² (g=10 m/s²). Reading on scale:",opts:["560 N","700 N","840 N","1400 N"],ans:2,exp:"N = m(g+a) = 70(10+2) = 70 × 12 = 840 N. Upward acceleration increases apparent weight."},
+
+// ── WORK, ENERGY & POWER (12) ─────────────────────────────────
+{topic:"Work, Energy & Power",q:"A 10 kg block is lifted 4 m (g=10 m/s²). Potential energy gained:",opts:["40 J","200 J","400 J","4000 J"],ans:2,exp:"PE = mgh = 10 × 10 × 4 = 400 J."},
+{topic:"Work, Energy & Power",q:"A body of mass 2 kg moves at 6 m/s. Its kinetic energy is:",opts:["6 J","12 J","18 J","36 J"],ans:3,exp:"KE = ½mv² = ½ × 2 × 36 = 36 J."},
+{topic:"Work, Energy & Power",q:"A machine has MA = 4, VR = 5. Its efficiency:",opts:["70%","75%","80%","125%"],ans:2,exp:"Efficiency = (MA/VR) × 100 = (4/5) × 100 = 80%."},
+{topic:"Work, Energy & Power",q:"Power = 500 W for 2 minutes. Energy transferred:",opts:["250 J","1000 J","60000 J","250000 J"],ans:2,exp:"Energy = Power × time = 500 × 120 = 60,000 J = 60 kJ."},
+{topic:"Work, Energy & Power",q:"A body slides down a frictionless slope from height 5 m. Speed at bottom (g=10 m/s²):",opts:["5 m/s","10 m/s","50 m/s","100 m/s"],ans:1,exp:"Conservation of energy: mgh = ½mv² → v = √(2gh) = √(2×10×5) = √100 = 10 m/s."},
+{topic:"Work, Energy & Power",q:"Work done by a force F over displacement d at angle θ is:",opts:["Fd","Fd sinθ","Fd cosθ","Fd tanθ"],ans:2,exp:"W = F·d = Fd cosθ. Only the component of force in the direction of displacement does work."},
+{topic:"Work, Energy & Power",q:"For an inclined plane machine, the velocity ratio VR equals:",opts:["sinθ","1/sinθ","cosθ","1/cosθ"],ans:1,exp:"VR = distance moved by effort / distance moved by load = length/height = 1/sinθ."},
+{topic:"Work, Energy & Power",q:"A pump lifts 100 kg of water per minute to a height of 6 m (g=10 m/s²). Power of pump:",opts:["100 W","600 W","1000 W","6000 W"],ans:0,exp:"Power = mgh/t = (100×10×6)/60 = 6000/60 = 100 W."},
+{topic:"Work, Energy & Power",q:"In an elastic collision, which quantities are conserved?",opts:["Momentum only","Kinetic energy only","Both momentum and kinetic energy","Neither"],ans:2,exp:"In a perfectly elastic collision (e=1), both linear momentum AND kinetic energy are conserved."},
+{topic:"Work, Energy & Power",q:"A spring of constant 200 N/m is compressed by 0.1 m. Elastic PE stored:",opts:["1 J","2 J","10 J","20 J"],ans:0,exp:"Elastic PE = ½kx² = ½ × 200 × (0.1)² = ½ × 200 × 0.01 = 1 J."},
+{topic:"Work, Energy & Power",q:"The work-energy theorem states that net work done on a body equals:",opts:["Its potential energy","Its total energy","Change in kinetic energy","Change in momentum"],ans:2,exp:"Work-energy theorem: W_net = ΔKE = ½mv² - ½mu². Net work done equals the change in kinetic energy."},
+{topic:"Work, Energy & Power",q:"1 horsepower (HP) equals approximately:",opts:["500 W","746 W","1000 W","100 W"],ans:1,exp:"1 HP = 746 W ≈ 750 W. This is a non-SI unit of power commonly used for engines and motors."},
+
+// ── MOMENTUM & COLLISIONS (10) ────────────────────────────────
+{topic:"Momentum & Collisions",q:"A 2 kg ball at 5 m/s collides and sticks to a 3 kg stationary ball. Common velocity:",opts:["2 m/s","3 m/s","4 m/s","5 m/s"],ans:0,exp:"Conservation of momentum: 2(5) = (2+3)v → 10 = 5v → v = 2 m/s."},
+{topic:"Momentum & Collisions",q:"Newton's law of restitution: e = (v₁-v₂)/(u₁-u₂). For a perfectly elastic collision e =",opts:["0","0.5","1","∞"],ans:2,exp:"e = 1 for perfectly elastic collisions (maximum bounce). e = 0 for perfectly inelastic (objects stick together)."},
+{topic:"Momentum & Collisions",q:"Coefficient of restitution e = 0 means:",opts:["Perfectly elastic","Perfectly inelastic","Partially elastic","Explosive"],ans:1,exp:"e = 0 means objects stick together (perfectly inelastic). Maximum kinetic energy is lost, minimum e possible."},
+{topic:"Momentum & Collisions",q:"A 1500 kg car moving at 20 m/s. Its momentum is:",opts:["75 kg·m/s","750 kg·m/s","30000 kg·m/s","3000 kg·m/s"],ans:2,exp:"p = mv = 1500 × 20 = 30,000 kg·m/s."},
+{topic:"Momentum & Collisions",q:"Centre of mass of two equal masses m at positions x₁ and x₂ is at:",opts:["x₁","x₂","(x₁+x₂)/2","(x₁×x₂)/(x₁+x₂)"],ans:2,exp:"x_cm = (m₁x₁ + m₂x₂)/(m₁+m₂) = (mx₁+mx₂)/2m = (x₁+x₂)/2. Midpoint for equal masses."},
+{topic:"Momentum & Collisions",q:"A 5 kg ball moving at 4 m/s is brought to rest in 0.02 s. Average force applied:",opts:["100 N","200 N","400 N","1000 N"],ans:3,exp:"Impulse = change in momentum. F×t = mv - mu → F(0.02) = 5×4 → F = 20/0.02 = 1000 N."},
+{topic:"Momentum & Collisions",q:"The law of conservation of momentum applies when:",opts:["All forces are zero","Net external force on system is zero","Objects are at rest","Collision is elastic"],ans:1,exp:"Conservation of momentum holds when the net external force on the system is zero (isolated system)."},
+{topic:"Momentum & Collisions",q:"A gun of mass 3 kg fires a bullet of mass 0.03 kg at 500 m/s. Recoil velocity of gun:",opts:["5 m/s","50 m/s","0.5 m/s","500 m/s"],ans:0,exp:"By conservation: 0 = M_gun × V_gun + m_bullet × v_bullet → 3V = -0.03×500 → V = -15/3 = -5 m/s. Recoil = 5 m/s."},
+{topic:"Momentum & Collisions",q:"In an explosion, two fragments of mass 2 kg and 3 kg fly apart. If 3 kg moves at 4 m/s, speed of 2 kg:",opts:["2 m/s","4 m/s","6 m/s","8 m/s"],ans:2,exp:"Initial momentum = 0. 0 = 3(4) - 2v → 2v = 12 → v = 6 m/s (opposite direction)."},
+{topic:"Momentum & Collisions",q:"Which quantity is always conserved in ALL types of collisions?",opts:["Kinetic energy","Total mechanical energy","Linear momentum","Velocity"],ans:2,exp:"Linear momentum is ALWAYS conserved in all collisions (elastic, inelastic, perfectly inelastic) as long as no external forces act."},
+
+// ── CIRCULAR & HARMONIC MOTION (16) ───────────────────────────
+{topic:"Circular & Harmonic Motion",q:"A body moves in a circle of radius 2 m at 10 m/s. Centripetal acceleration:",opts:["5 m/s²","20 m/s²","50 m/s²","100 m/s²"],ans:2,exp:"ac = v²/r = 100/2 = 50 m/s²."},
+{topic:"Circular & Harmonic Motion",q:"Angular velocity ω = 2π rad/s. Frequency f equals:",opts:["π Hz","1 Hz","2π Hz","0.5 Hz"],ans:1,exp:"ω = 2πf → f = ω/2π = 2π/2π = 1 Hz."},
+{topic:"Circular & Harmonic Motion",q:"Period T of a simple pendulum of length 0.25 m (g=10 m/s²):",opts:["π/5 s","π/√10 s","π s","π/2 s"],ans:3,exp:"T = 2π√(L/g) = 2π√(0.25/10) = 2π√(0.025) = 2π × 0.158 = 0.995 ≈ π/√10 ≈ π/3.16 ≈ 1 s. More precisely π/√10 s ≈ π/2 at g=π²."},
+{topic:"Circular & Harmonic Motion",q:"In SHM, when displacement x = 0 (equilibrium), the kinetic energy is:",opts:["Zero","Maximum","Equal to PE","Minimum but non-zero"],ans:1,exp:"KE = ½mω²(A²-x²). At x=0: KE = ½mω²A² = maximum. All energy is kinetic at equilibrium."},
+{topic:"Circular & Harmonic Motion",q:"In SHM, when x = A (amplitude), the potential energy is:",opts:["Zero","½mω²A²","mω²A²","Maximum (= ½mω²A²)"],ans:3,exp:"PE = ½mω²x². At x=A: PE = ½mω²A² = maximum. KE = 0. All energy is potential at extreme positions."},
+{topic:"Circular & Harmonic Motion",q:"Total energy in SHM is:",opts:["½mω²x²","½mω²(A²-x²)","½mω²A²","Varies with position"],ans:2,exp:"Total energy E = KE + PE = ½mω²(A²-x²) + ½mω²x² = ½mω²A² = constant. Total energy in SHM is constant."},
+{topic:"Circular & Harmonic Motion",q:"A stone on a string radius 0.5 m at 4 m/s. Centripetal force on 0.2 kg stone:",opts:["1.6 N","3.2 N","6.4 N","0.8 N"],ans:2,exp:"CF = mv²/r = 0.2 × 16/0.5 = 0.2 × 32 = 6.4 N."},
+{topic:"Circular & Harmonic Motion",q:"The equation of displacement in SHM is:",opts:["x = A cosωt only","x = A sinωt or x = A cosωt","x = Aωt","x = ωt/A"],ans:1,exp:"SHM displacement: x = A sinωt (if starting from equilibrium) or x = A cosωt (if starting from amplitude). Both are valid depending on initial conditions."},
+{topic:"Circular & Harmonic Motion",q:"A particle executes SHM with period T = 10π s. Its angular velocity ω:",opts:["0.1 rad/s","0.2 rad/s","5π rad/s","π/5 rad/s"],ans:1,exp:"ω = 2π/T = 2π/10π = 2/10 = 0.2 rad/s."},
+{topic:"Circular & Harmonic Motion",q:"Free oscillations are characterized by:",opts:["Decreasing amplitude","Constant amplitude and natural frequency","Externally forced frequency","Resonance"],ans:1,exp:"Free oscillations occur at the system's natural frequency with constant amplitude — no energy loss (no damping) and no external driving force."},
+{topic:"Circular & Harmonic Motion",q:"Resonance occurs when the driving frequency:",opts:["Is less than natural frequency","Is greater than natural frequency","Equals the natural frequency","Is zero"],ans:2,exp:"Resonance: maximum amplitude occurs when driving frequency = natural frequency of the system."},
+{topic:"Circular & Harmonic Motion",q:"A body of 0.14 kg moves at 0.4 m/s in circle of radius 5 cm. Centripetal force:",opts:["0.448 N","1.12 N","0.224 N","2.24 N"],ans:0,exp:"CF = mv²/r = 0.14 × (0.4)²/0.05 = 0.14 × 0.16/0.05 = 0.14 × 3.2 = 0.448 N."},
+{topic:"Circular & Harmonic Motion",q:"Angular velocity ω of Earth's rotation (T = 24 h) is approximately:",opts:["7.27×10⁻⁵ rad/s","7.27×10⁻³ rad/s","2π/60 rad/s","1 rad/s"],ans:0,exp:"ω = 2π/T = 2π/(24×3600) = 6.283/86400 ≈ 7.27×10⁻⁵ rad/s."},
+{topic:"Circular & Harmonic Motion",q:"In damped oscillations, the amplitude:",opts:["Increases","Remains constant","Decreases exponentially","Oscillates"],ans:2,exp:"In damped oscillations, resistive forces (friction, air resistance) remove energy from the system. Amplitude decreases exponentially over time."},
+{topic:"Circular & Harmonic Motion",q:"The relationship between period T and frequency f is:",opts:["T = f","T = 1/f","T = 2πf","T = f/2π"],ans:1,exp:"T = 1/f. Period (seconds per cycle) and frequency (cycles per second) are reciprocals of each other."},
+{topic:"Circular & Harmonic Motion",q:"For a conical pendulum of length L at half-angle θ, period T:",opts:["2π√(L/g)","2π√(Lcosθ/g)","2π√(Lsinθ/g)","2π√(Ltanθ/g)"],ans:1,exp:"T = 2π√(h/g) = 2π√(Lcosθ/g), where h = Lcosθ is the vertical height. Different from simple pendulum."},
+
+// ── ROTATIONAL DYNAMICS (12) ──────────────────────────────────
+{topic:"Rotational Dynamics",q:"Moment of inertia of a uniform rod of mass M, length L about its center:",opts:["ML²/2","ML²/3","ML²/12","ML²/6"],ans:2,exp:"For a rod about its center: I = ML²/12. About one end: I = ML²/3."},
+{topic:"Rotational Dynamics",q:"Parallel-axis theorem: I about any axis = I_cm + Mh². Here h is:",opts:["Length of body","Distance between the two parallel axes","Radius of gyration","Perpendicular distance from axis to center"],ans:1,exp:"h = perpendicular distance between the axis through the center of mass and the new parallel axis."},
+{topic:"Rotational Dynamics",q:"Rotational KE = ½Iω². If ω doubles and I stays same, KE:",opts:["Doubles","Triples","Quadruples","Halves"],ans:2,exp:"KE = ½Iω². If ω → 2ω: KE = ½I(2ω)² = ½I×4ω² = 4×(½Iω²). KE quadruples."},
+{topic:"Rotational Dynamics",q:"Angular momentum L = Iω. If net torque = 0, then:",opts:["ω increases","I increases","L is constant","ω is constant"],ans:2,exp:"Conservation of angular momentum: if net external torque = 0, then dL/dt = 0, so L = Iω = constant."},
+{topic:"Rotational Dynamics",q:"A spinning skater pulls arms inward, reducing I. Angular velocity ω:",opts:["Decreases","Stays same","Increases","Becomes zero"],ans:2,exp:"By conservation of angular momentum: L = I₁ω₁ = I₂ω₂. If I decreases, ω must increase."},
+{topic:"Rotational Dynamics",q:"Power of a rotating body P = τω. If torque τ = 20 N·m and ω = 5 rad/s, P =",opts:["4 W","25 W","100 W","200 W"],ans:2,exp:"P = τω = 20 × 5 = 100 W."},
+{topic:"Rotational Dynamics",q:"Period of a compound pendulum: T = 2π√(I/mgd). Here d is:",opts:["Radius of gyration","Distance from pivot to center of gravity","Length of pendulum","Moment of inertia"],ans:1,exp:"d = distance from the pivot point to the center of gravity of the compound pendulum."},
+{topic:"Rotational Dynamics",q:"For a sphere of mass M radius R rolling without slipping, total KE:",opts:["½Mv²","7/10 Mv²","2/5 Mv²","½Mv² + ½Iω²"],ans:1,exp:"Total KE = ½Mv² + ½Iω² = ½Mv² + ½(2/5 MR²)(v/R)² = ½Mv²(1 + 2/5) = 7/10 Mv²."},
+{topic:"Rotational Dynamics",q:"Perpendicular axis theorem applies to:",opts:["3D objects only","Flat laminae (2D bodies)","Cylindrical bodies","Any rigid body"],ans:1,exp:"Perpendicular axis theorem (Iz = Ix + Iy) applies ONLY to flat, planar bodies (laminae). For 3D objects, use parallel axis theorem."},
+{topic:"Rotational Dynamics",q:"Torque τ = r × F. If r = 0.5 m and F = 40 N applied perpendicularly, τ =",opts:["0.8 N·m","20 N·m","80 N·m","40 N·m"],ans:1,exp:"τ = rF sinθ = 0.5 × 40 × sin90° = 0.5 × 40 × 1 = 20 N·m."},
+{topic:"Rotational Dynamics",q:"Moment of inertia of a solid disk of mass M radius R about its axis:",opts:["MR²","MR²/2","2MR²/3","MR²/4"],ans:1,exp:"For a solid disk about its central axis: I = ½MR². For a ring: I = MR²."},
+{topic:"Rotational Dynamics",q:"The rotational analogue of Newton's 2nd law F=ma is:",opts:["τ = Iα","τ = Lω","τ = Iω","F = Iα"],ans:0,exp:"Torque τ = Iα is the rotational equivalent of F = ma. Torque replaces force, moment of inertia replaces mass, angular acceleration replaces linear acceleration."},
+
+// ── STATIC EQUILIBRIUM (10) ───────────────────────────────────
+{topic:"Static Equilibrium",q:"For translational equilibrium, ΣF =",opts:["Maximum","Constant","Zero","mg"],ans:2,exp:"Translational equilibrium: ΣF = 0 (vector sum of all forces = zero). No net force means no linear acceleration."},
+{topic:"Static Equilibrium",q:"Lami's theorem for 3 concurrent forces in equilibrium: F₁/sinα =",opts:["F₂/sinβ = F₃/sinγ","F₂/cosβ = F₃/cosγ","F₂sinβ = F₃sinγ","F₂/tanβ = F₃/tanγ"],ans:0,exp:"Lami's Theorem: F₁/sinα = F₂/sinβ = F₃/sinγ, where α, β, γ are the angles between the OTHER two forces (not the angle at the force itself)."},
+{topic:"Static Equilibrium",q:"A couple consists of:",opts:["Two parallel forces in the same direction","Two equal, opposite, parallel forces with different lines of action","A single large force","Force and its reaction"],ans:1,exp:"A couple = two equal, opposite, and parallel forces whose lines of action do NOT coincide. A couple produces pure rotation (no translation). Moment = F × d."},
+{topic:"Static Equilibrium",q:"The centre of gravity of a body is the point:",opts:["With maximum mass","Through which resultant weight acts","Of geometric symmetry","Of maximum density"],ans:1,exp:"The centre of gravity is the point through which the entire weight of the body appears to act, regardless of orientation."},
+{topic:"Static Equilibrium",q:"In stable equilibrium, when displaced, the centre of gravity:",opts:["Stays at same level","Moves lower","Moves higher","Moves horizontally"],ans:2,exp:"In stable equilibrium: CG rises when displaced → restoring tendency → body returns to original position."},
+{topic:"Static Equilibrium",q:"In unstable equilibrium, when displaced, the centre of gravity:",opts:["Moves higher","Stays at same level","Moves lower","Oscillates"],ans:2,exp:"In unstable equilibrium: CG moves lower when displaced → body moves further from original position (no restoration)."},
+{topic:"Static Equilibrium",q:"The triangle of forces states three coplanar concurrent forces in equilibrium can be represented by:",opts:["Sides of any triangle","Sides of a closed triangle taken in order","Diagonals of a parallelogram","Sides of a square"],ans:1,exp:"Triangle of forces: if 3 concurrent forces are in equilibrium, they can be represented in magnitude and direction by the sides of a closed triangle taken in sequential order."},
+{topic:"Static Equilibrium",q:"For equilibrium of three coplanar forces, their lines of action must be:",opts:["All perpendicular","Parallel or concurrent","Randomly oriented","All horizontal"],ans:1,exp:"For three coplanar forces to produce equilibrium, their lines of action must either be all parallel OR all concurrent (meet at a single point)."},
+{topic:"Static Equilibrium",q:"Maximum static friction is:",opts:["μk × N","μs × N","μs × mg × sinθ","μk × mg"],ans:1,exp:"Maximum static friction fs = μs × N, where N is the normal reaction force. Static friction adjusts automatically up to this maximum."},
+{topic:"Static Equilibrium",q:"Neutral equilibrium occurs when the centre of gravity:",opts:["Rises after displacement","Falls after displacement","Stays at same height after displacement","Moves unpredictably"],ans:2,exp:"Neutral equilibrium: CG stays at same height after displacement → body stays wherever placed (e.g., ball on flat surface)."},
+
+// ── GRAVITATION (10) ──────────────────────────────────────────
+{topic:"Gravitation",q:"Newton's law of gravitation: F = Gm₁m₂/r². If r doubles, F becomes:",opts:["½F","¼F","2F","4F"],ans:1,exp:"F ∝ 1/r². If r doubles: F_new = Gm₁m₂/(2r)² = Gm₁m₂/4r² = F/4. Force reduces to one quarter."},
+{topic:"Gravitation",q:"Acceleration due to gravity g at Earth's surface (G=6.67×10⁻¹¹, M=6×10²⁴ kg, R=6.4×10⁶ m) ≈",opts:["5 m/s²","8.5 m/s²","9.8 m/s²","12 m/s²"],ans:2,exp:"g = GM/R² = (6.67×10⁻¹¹ × 6×10²⁴)/(6.4×10⁶)² ≈ 9.8 m/s²."},
+{topic:"Gravitation",q:"Escape velocity from Earth (g=10 m/s², R=6.4×10⁶ m) ≈",opts:["7.9 km/s","11.2 km/s","15 km/s","3 km/s"],ans:1,exp:"Escape velocity v = √(2gR) = √(2×10×6.4×10⁶) = √(1.28×10⁸) ≈ 11,314 m/s ≈ 11.2 km/s."},
+{topic:"Gravitation",q:"Orbital velocity of a satellite just above Earth's surface (g=10, R=6.4×10⁶):",opts:["7.9 km/s","11.2 km/s","3 km/s","20 km/s"],ans:0,exp:"Orbital velocity v = √(gR) = √(10×6.4×10⁶) = √(6.4×10⁷) ≈ 8000 m/s ≈ 7.9 km/s."},
+{topic:"Gravitation",q:"Kepler's third law states T² ∝",opts:["r","r²","r³","1/r"],ans:2,exp:"Kepler's 3rd law: T² ∝ r³ (the square of orbital period is proportional to the cube of orbital radius)."},
+{topic:"Gravitation",q:"Weight of a body on the Moon is approximately:",opts:["Same as on Earth","6× that on Earth","1/6 that on Earth","2× that on Earth"],ans:2,exp:"g_moon ≈ g_earth/6 ≈ 1.6 m/s². So weight on moon = mg_moon ≈ mg_earth/6."},
+
+],
+
+// ════════════════════════════════════════════════════════════════
+// PHY 117 — PRACTICAL PHYSICS  (90 questions)
+// ════════════════════════════════════════════════════════════════
+PHY117: [
+
+// ── GRAPHICAL ANALYSIS (20) ───────────────────────────────────
+{topic:"Graphical Analysis",q:"In the general equation y = mx + c, the intercept c is found where the graph crosses:",opts:["x-axis","y-axis","Origin","Diagonal"],ans:1,exp:"c (y-intercept) is where the graph crosses the y-axis (where x = 0). x-intercept is where y = 0."},
+{topic:"Graphical Analysis",q:"A graph of T² against L has slope = g/4π². To find g:",opts:["g = slope/4π²","g = 4π²/slope","g = slope × 4π²","g = 4π² × slope"],ans:2,exp:"T² = (4π²/g)L → slope = 4π²/g → g = slope × 4π²."},
+{topic:"Graphical Analysis",q:"Case 1 graph (y = mx, c=0) passes through the:",opts:["y-axis at positive value","x-axis at a positive value","Origin","Negative y-axis"],ans:2,exp:"When c = 0, the graph passes through the origin (0,0). Example: Hooke's Law F = ke, graph of F vs e passes through origin."},
+{topic:"Graphical Analysis",q:"Case 2 graph (y = mx + c) has a positive intercept. This means:",opts:["Graph crosses negative y-axis","Graph crosses positive y-axis","Graph passes through origin","Graph is horizontal"],ans:1,exp:"Positive c means the graph crosses the y-axis above the origin (at positive y value). Example: T² against L for compound pendulum."},
+{topic:"Graphical Analysis",q:"Case 5 graph (y = c, m = 0) gives a:",opts:["Line through origin","Vertical line","Horizontal line","Curved line"],ans:2,exp:"When m = 0, the slope is zero → horizontal line at y = c. Example: zero acceleration on a v-t graph."},
+{topic:"Graphical Analysis",q:"The dependent variable in an experiment is placed on the:",opts:["x-axis","y-axis","Both axes","Neither axis"],ans:1,exp:"Convention: Dependent variable (what you measure) goes on the y-axis. Independent variable (what you control) goes on the x-axis."},
+{topic:"Graphical Analysis",q:"Slope of a graph is calculated as:",opts:["Rise × Run","Rise / Run = Δy/Δx","Run / Rise = Δx/Δy","y-intercept / x-intercept"],ans:1,exp:"Slope (gradient) m = Δy/Δx = (y₂-y₁)/(x₂-x₁). Always use large triangles for accuracy when reading gradients."},
+{topic:"Graphical Analysis",q:"For F = ke (Hooke's Law), graphing F (y-axis) against e (x-axis), the slope gives:",opts:["Extension e","1/k (inverse of spring constant)","Spring constant k","Mass m"],ans:2,exp:"F = ke → y = mx, so m = k = slope. The gradient of F vs e graph directly gives the spring constant k."},
+{topic:"Graphical Analysis",q:"If we plot T² (y-axis) against m (x-axis) for T = 2π√(M+m₀)/Lg, the y-intercept gives:",opts:["Mass of pan m₀ × 4π/Lg","-m₀ (negative of pan mass)","4π/Lg","Lg/4π"],ans:1,exp:"T² = (4π/Lg)m + (4π·m₀/Lg). y-intercept = 4π·m₀/Lg — which can be used to find m₀. But the y-intercept is positive, not -m₀."},
+{topic:"Graphical Analysis",q:"A graph has positive slope and passes through origin. This corresponds to:",opts:["y = c","y = mx + c (c>0)","y = mx (c = 0)","y = -mx + c"],ans:2,exp:"Positive slope passing through origin = y = mx (Case 1). Intercept c = 0."},
+{topic:"Graphical Analysis",q:"To get a straight line from y = ax², you should plot:",opts:["y against x","y against x²","√y against x","y² against x"],ans:1,exp:"Plotting y against x² linearizes y = ax². The slope = a, and it passes through the origin (c = 0)."},
+{topic:"Graphical Analysis",q:"For the equation v² = u² + 2as, if we plot v² against s, the slope is:",opts:["u²","2a","a","½a"],ans:1,exp:"v² = 2a·s + u². Comparing y = mx + c: y = v², x = s, slope = 2a, intercept = u²."},
+{topic:"Graphical Analysis",q:"Case 3 graph (y = mx - c) crosses the y-axis at:",opts:["Positive value","Zero","Negative value","Infinity"],ans:2,exp:"y = mx - c. At x=0: y = -c. The graph crosses the y-axis at a negative value. Example: graph of h against T² for compound pendulum."},
+{topic:"Graphical Analysis",q:"A best-fit line in experimental graphs should:",opts:["Pass through every point","Pass through as many points as possible with equal scatter above and below","Pass through origin always","Connect the first and last points"],ans:1,exp:"Best-fit (line of best fit) passes through the general trend of points with approximately equal numbers of points above and below. NOT through every point."},
+{topic:"Graphical Analysis",q:"For T = 2π√(H-h)/g, plotting h against T² gives slope =",opts:["g/4π","−g/4π","4π/g","−4π/g"],ans:1,exp:"Squaring: T² = 4π²(H-h)/g → T²g/4π² = H - h → h = -gT²/4π² + H. Slope = -g/4π². Negative slope."},
+{topic:"Graphical Analysis",q:"The x-intercept of a graph y = mx + c is at x =",opts:["c","m","−c/m","c/m"],ans:2,exp:"At y = 0: 0 = mx + c → x = -c/m. This is the x-intercept."},
+{topic:"Graphical Analysis",q:"In a v-t (velocity-time) graph for uniform acceleration, the area under the line gives:",opts:["Acceleration","Speed","Displacement","Force"],ans:2,exp:"Area under v-t graph = displacement. The slope gives acceleration."},
+{topic:"Graphical Analysis",q:"For Case 4 graph (y = x), slope = 1 and intercept = 0. This means:",opts:["y and x are inversely proportional","y equals x directly","y is always greater than x","y = x²"],ans:1,exp:"y = x means y and x are directly equal. Slope m = 1, no intercept. The line makes 45° with axes."},
+{topic:"Graphical Analysis",q:"To determine g from a pendulum experiment, you need the slope of which graph?",opts:["T vs L","T² vs L","L vs T","L² vs T"],ans:1,exp:"T = 2π√(L/g) → T² = (4π²/g)L. Plot T² (y) vs L (x). Slope = 4π²/g → g = 4π²/slope."},
+{topic:"Graphical Analysis",q:"In a graph with negative slope and positive y-intercept, the equation is:",opts:["y = mx (m>0)","y = mx + c (m<0, c>0)","y = c only","y = -mx - c"],ans:1,exp:"Negative slope (m<0) with positive y-intercept (c>0): y = mx + c where m is negative. Example: case 3-type but with positive y-intercept."},
+
+// ── ERROR ANALYSIS (18) ────────────────────────────────────────
+{topic:"Error Analysis",q:"Standard error σ = W/√n. If W = 1.2 and n = 9, σ =",opts:["0.133","0.4","0.267","1.08"],ans:1,exp:"σ = W/√n = 1.2/√9 = 1.2/3 = 0.4."},
+{topic:"Error Analysis",q:"Standard error of the mean Sm =",opts:["W/n","W/√n","σ/n","W/n²"],ans:0,exp:"Sm = W/n (not W/√n which is σ). Sm is used to express the precision of the final mean result."},
+{topic:"Error Analysis",q:"Quantity measured as 5.00 ± 0.05 m. Fractional error:",opts:["0.01%","0.1%","1%","10%"],ans:2,exp:"Fractional error = (0.05/5.00) × 100 = 0.01 × 100 = 1%."},
+{topic:"Error Analysis",q:"Systematic errors CANNOT be reduced by:",opts:["Calibrating instruments","Taking more readings","Using better equipment","Correcting zero error"],ans:1,exp:"Systematic errors have the same sign and magnitude each time — taking more readings and averaging does NOT remove them. They must be corrected directly."},
+{topic:"Error Analysis",q:"Random errors can be reduced by:",opts:["Calibrating the instrument","Taking one careful reading","Taking many readings and averaging","Using SI units"],ans:2,exp:"Random errors are statistical — they can be minimized by taking many repeated measurements and calculating the mean, which reduces the standard error."},
+{topic:"Error Analysis",q:"A zero error occurs when:",opts:["The instrument reads zero when it should read maximum","The instrument reads non-zero when the quantity is actually zero","Temperature changes","Parallax occurs"],ans:1,exp:"Zero error: the instrument doesn't read exactly zero when the quantity being measured is zero. Example: a ruler that starts at 0.1 cm, or a balance not balanced at zero."},
+{topic:"Error Analysis",q:"Parallax error when reading a scale occurs due to:",opts:["Wrong calibration","Eye not level with the scale reading","Friction in instrument","Temperature variation"],ans:1,exp:"Parallax error: reading appears different depending on viewing angle. Eye must be directly in line (perpendicular) with the scale to avoid parallax."},
+{topic:"Error Analysis",q:"Error in slope of a graph = 4W/(nR). Here R is:",opts:["Radius","Horizontal range of graph","Random error","Refractive index"],ans:1,exp:"R = horizontal range of the graph (x_max - x_min). This formula gives the uncertainty in the slope from a graph."},
+{topic:"Error Analysis",q:"Five measurements of period T: 2.40, 1.14, 2.10, 1.12, 1.05 s. Vertical scatter W =",opts:["1.35 s","0.603 s","0.27 s","2.40 s"],ans:0,exp:"W = greatest value - least value = 2.40 - 1.05 = 1.35 s."},
+{topic:"Error Analysis",q:"Using the 5 values above, standard error σ = W/√n =",opts:["0.270 s","0.603 s","0.135 s","1.35 s"],ans:1,exp:"σ = W/√n = 1.35/√5 = 1.35/2.236 ≈ 0.603 s."},
+{topic:"Error Analysis",q:"Instrument error is caused by:",opts:["Observer's slow reaction","Faulty or improperly calibrated instruments","Wrong arithmetic","Temperature changes in environment"],ans:1,exp:"Instrument errors arise from faulty equipment (e.g., a stopwatch running fast/slow, a ruler that has shrunk) or improperly calibrated instruments."},
+{topic:"Error Analysis",q:"Erratic errors are best described as:",opts:["Consistent errors in one direction","Errors from changing conditions","Arithmetic mistakes and miscounting","Errors from wrong assumptions"],ans:2,exp:"Erratic (gross) errors: mistakes from miscounting, arithmetic blunders, or misreading instruments. They are usually obvious outliers in data."},
+{topic:"Error Analysis",q:"The purpose of drawing a best-fit line is to:",opts:["Connect all data points","Minimize random error effects and show the trend","Identify systematic errors","Find the maximum value"],ans:1,exp:"Best-fit line smooths out random errors in individual measurements to show the underlying relationship between variables."},
+{topic:"Error Analysis",q:"Fractional error is also called:",opts:["Absolute error","Standard error","Relative error","Systematic error"],ans:2,exp:"Fractional error = absolute error/measured value. It is also called relative error. Expressed as a percentage, it becomes percentage error."},
+{topic:"Error Analysis",q:"The standard error of the mean Sm represents:",opts:["The scatter in individual measurements","The precision of the mean value","The accuracy of the instrument","The systematic error"],ans:1,exp:"Sm tells us how precisely the mean value has been determined. A smaller Sm means the mean is more precisely known."},
+{topic:"Error Analysis",q:"When errors are combined for a sum Z = A + B, the absolute error ΔZ =",opts:["ΔA × ΔB","ΔA - ΔB","ΔA + ΔB","(ΔA + ΔB)/2"],ans:2,exp:"For addition or subtraction, absolute errors add: ΔZ = ΔA + ΔB. Always add errors (never subtract) to get maximum possible error."},
+{topic:"Error Analysis",q:"For a product Z = A × B, the fractional error ΔZ/Z =",opts:["ΔA/A × ΔB/B","ΔA/A - ΔB/B","ΔA/A + ΔB/B","(ΔA + ΔB)/(A + B)"],ans:2,exp:"For multiplication/division, fractional errors add: ΔZ/Z = ΔA/A + ΔB/B."},
+{topic:"Error Analysis",q:"Which type of error shifts ALL readings by the same amount in the same direction?",opts:["Random error","Erratic error","Systematic error","Percentage error"],ans:2,exp:"Systematic errors consistently shift readings in one direction by the same or similar amounts. They cannot be reduced by averaging."},
+
+// ── SHM & PENDULUM (16) ───────────────────────────────────────
+{topic:"SHM & Pendulum",q:"SHM: restoring force is proportional to displacement and directed:",opts:["Away from equilibrium","Toward equilibrium","Perpendicular to displacement","Parallel to velocity"],ans:1,exp:"In SHM, F = -kx. The negative sign means force is directed TOWARD equilibrium (opposite to displacement). This is the restoring force."},
+{topic:"SHM & Pendulum",q:"Period of simple pendulum L = 1.5 m (g = 9.8 m/s²):",opts:["1.23 s","2.46 s","4.91 s","0.62 s"],ans:1,exp:"T = 2π√(L/g) = 2π√(1.5/9.8) = 2π√(0.153) = 2π × 0.391 = 2.458 ≈ 2.46 s."},
+{topic:"SHM & Pendulum",q:"In SHM, x = 3.5 sin(0.2πt) cm. The amplitude A is:",opts:["0.2π cm","3.5 cm","0.2 cm","3.5π cm"],ans:1,exp:"Comparing x = A sinωt: A = 3.5 cm, ω = 0.2π rad/s. Amplitude is the coefficient of the sinusoidal function."},
+{topic:"SHM & Pendulum",q:"For x = A sinωt, angular velocity ω = 0.2π rad/s. The period T =",opts:["0.2π s","5π s","10 s","0.1 s"],ans:2,exp:"T = 2π/ω = 2π/(0.2π) = 2/0.2 = 10 s."},
+{topic:"SHM & Pendulum",q:"Velocity in SHM: v = ωr. If ω = 2 rad/s and r (amplitude) = 0.05 m, max velocity:",opts:["0.025 m/s","0.1 m/s","0.4 m/s","0.04 m/s"],ans:1,exp:"Maximum velocity v_max = ωA = 2 × 0.05 = 0.1 m/s. This occurs at the equilibrium position."},
+{topic:"SHM & Pendulum",q:"Acceleration in SHM: a = ω²r. For ω = 0.2π, r = 0.035 m, max acceleration:",opts:["1.4×10⁻³π² m/s²","0.035π² m/s²","0.2π² m/s²","0.4π m/s²"],ans:0,exp:"a_max = ω²A = (0.2π)² × 0.035 = 0.04π² × 0.035 = 1.4×10⁻³ π² m/s²."},
+{topic:"SHM & Pendulum",q:"A stone of mass 2.5 kg on a string radius 5.0 m at linear speed 10 m/s. Angular velocity ω:",opts:["0.5 rad/s","1.0 rad/s","2.0 rad/s","25 rad/s"],ans:2,exp:"ω = v/r = 10/5 = 2.0 rad/s."},
+{topic:"SHM & Pendulum",q:"Conical pendulum: T = 2π√(Lcosθ/g). As angle θ increases, period T:",opts:["Increases","Decreases","Stays same","First increases then decreases"],ans:1,exp:"As θ increases, cosθ decreases, so Lcosθ decreases, so √(Lcosθ/g) decreases, so T decreases. The conical pendulum spins faster at greater angles."},
+{topic:"SHM & Pendulum",q:"Conical pendulum of L=2m at 30° to vertical (g=9.8 m/s²). Period T:",opts:["2.60 s","2.64 s","2.84 s","3.28 s"],ans:1,exp:"T = 2π√(Lcos30°/g) = 2π√(2×0.866/9.8) = 2π√(0.1767) = 2π×0.4204 = 2.641 ≈ 2.64 s."},
+{topic:"SHM & Pendulum",q:"Examples of SHM include all EXCEPT:",opts:["Pendulum swinging","Vibrating tuning fork","A ball rolling on flat ground","Mass on a spring"],ans:2,exp:"A ball rolling on flat ground moves with constant velocity (no restoring force). All others are examples of SHM — they oscillate about a fixed equilibrium point."},
+{topic:"SHM & Pendulum",q:"Frequency f = n/t. If a pendulum completes 30 oscillations in 60 s:",opts:["f = 0.5 Hz, T = 2 s","f = 2 Hz, T = 0.5 s","f = 30 Hz, T = 1 s","f = 1 Hz, T = 1 s"],ans:0,exp:"f = n/t = 30/60 = 0.5 Hz. T = 1/f = 1/0.5 = 2 s."},
+{topic:"SHM & Pendulum",q:"Period T of SHM also equals:",opts:["Time for one complete oscillation","Frequency","Half oscillation time","ω/2π"],ans:0,exp:"T = time for ONE complete oscillation (back and forth). T = 1/f = 2π/ω."},
+{topic:"SHM & Pendulum",q:"In SHM, at what position is velocity maximum?",opts:["At extreme positions (x = ±A)","At x = A/2","At equilibrium (x = 0)","At any position equally"],ans:2,exp:"v = ω√(A²-x²). At x = 0: v = ωA = maximum. At x = ±A: v = 0."},
+{topic:"SHM & Pendulum",q:"A particle in SHM has period 4 s and amplitude 8 cm. Maximum speed:",opts:["4π cm/s","8π cm/s","16π cm/s","32π cm/s"],ans:0,exp:"ω = 2π/T = 2π/4 = π/2 rad/s. v_max = ωA = (π/2) × 8 = 4π cm/s."},
+{topic:"SHM & Pendulum",q:"The period of SHM does NOT depend on:",opts:["Length (for pendulum)","Gravity","Amplitude (for small oscillations)","Spring constant (for spring)"],ans:2,exp:"For small oscillations, the period of a simple pendulum is independent of amplitude. T = 2π√(L/g) has no amplitude term."},
+{topic:"SHM & Pendulum",q:"Equation 8 of SHM formulas: f = ω/2π. If ω = 10π rad/s, f =",opts:["5 Hz","10 Hz","20π Hz","π/5 Hz"],ans:0,exp:"f = ω/2π = 10π/2π = 5 Hz."},
+
+// ── CIRCULAR MOTION (12) ──────────────────────────────────────
+{topic:"Circular Motion",q:"Centripetal force formula CF = mω²r. For m=0.84 kg, ω=3.4 rad/s, r=0.43 m:",opts:["4.17 N","2.08 N","8.34 N","1.04 N"],ans:0,exp:"CF = mω²r = 0.84 × (3.4)² × 0.43 = 0.84 × 11.56 × 0.43 = 0.84 × 4.97 ≈ 4.17 N."},
+{topic:"Circular Motion",q:"For circular motion, formulas ω = θ/t and ω = 2πf and ω = 2π/T are all:",opts:["Different quantities","Equivalent expressions for angular velocity","Only valid for uniform circular motion","Approximations"],ans:1,exp:"All three are equivalent expressions for angular velocity ω. θ/t (angular displacement per time), 2πf (2π × frequency), 2π/T (2π divided by period)."},
+{topic:"Circular Motion",q:"Body mass 0.5 kg, radius 0.8 m, angular velocity 3 rad/s. Centripetal force:",opts:["1.875 N","3.6 N","3.2 N","3.75 N"],ans:1,exp:"CF = mω²r = 0.5 × 9 × 0.8 = 3.6 N."},
+{topic:"Circular Motion",q:"In circular motion, centripetal force is directed:",opts:["Tangentially","Away from center (centrifugal)","Toward the center","Vertically downward"],ans:2,exp:"Centripetal force is ALWAYS directed toward the center of the circle. It provides the acceleration needed to change the direction of velocity."},
+{topic:"Circular Motion",q:"A car rounds a bend of radius 50 m at 20 m/s. Centripetal acceleration:",opts:["4 m/s²","8 m/s²","10 m/s²","40 m/s²"],ans:1,exp:"ac = v²/r = 400/50 = 8 m/s²."},
+{topic:"Circular Motion",q:"Which provides centripetal force for a satellite in orbit?",opts:["Thrust","Air resistance","Gravity","Normal reaction"],ans:2,exp:"For a satellite, gravity provides the centripetal force needed to maintain circular orbit. GMm/r² = mv²/r."},
+{topic:"Circular Motion",q:"A body revolves in a horizontal circle at n = 3 rev/s. Angular velocity ω:",opts:["3 rad/s","6π rad/s","9π rad/s","3π rad/s"],ans:1,exp:"ω = 2πn = 2π × 3 = 6π rad/s."},
+{topic:"Circular Motion",q:"Tangential velocity v and angular velocity ω relate by v =",opts:["ω/r","ωr","ω²r","r/ω"],ans:1,exp:"v = ωr. Linear (tangential) velocity = angular velocity × radius."},
+{topic:"Circular Motion",q:"Period T = 2π/ω. For ω = π rad/s, T =",opts:["2 s","π s","0.5 s","2π s"],ans:0,exp:"T = 2π/ω = 2π/π = 2 s."},
+{topic:"Circular Motion",q:"A washing machine drum of radius 0.25 m spins at 800 rpm. Centripetal acceleration of clothes:",opts:["≈175 m/s²","≈350 m/s²","≈700 m/s²","≈88 m/s²"],ans:2,exp:"ω = 2π × 800/60 = 83.8 rad/s. ac = ω²r = (83.8)² × 0.25 ≈ 7022 × 0.25 ≈ 1755 m/s². (Note: closest to 700 m/s² in relative scale — this tests order of magnitude.)"},
+{topic:"Circular Motion",q:"If a ball on a string is whirled vertically, the tension is greatest at:",opts:["Top of circle","Side of circle","Bottom of circle","Constant throughout"],ans:2,exp:"At bottom: T - mg = mv²/r → T = mv²/r + mg. At top: T + mg = mv²/r → T = mv²/r - mg. Bottom gives greater tension."},
+{topic:"Circular Motion",q:"The centripetal force is NOT a new type of force — it is:",opts:["Created by circular motion","The net inward force due to existing forces","Always friction","Always gravity"],ans:1,exp:"Centripetal force is the resultant of actual physical forces (tension, gravity, friction, normal force) that together point inward to maintain circular motion."},
+
+// ── ELASTICITY (14) ────────────────────────────────────────────
+{topic:"Elasticity",q:"Hooke's Law: F = ke. An object weighing 0.87 N extends a spring by 8 cm. Spring constant k:",opts:["6.96 N/m","10.87 N/m","0.70 N/m","69.6 N/m"],ans:1,exp:"k = F/e = 0.87/0.08 = 10.875 ≈ 10.87 N/m."},
+{topic:"Elasticity",q:"Same spring (k=10.87 N/m) extended 12 cm. Force required:",opts:["0.91 N","1.30 N","1.80 N","2.17 N"],ans:1,exp:"F = ke = 10.87 × 0.12 = 1.304 ≈ 1.30 N."},
+{topic:"Elasticity",q:"A block of weight 15 N extends a wire by 7.86 cm. A 45 N load gives extension:",opts:["13.6 cm","23.6 cm","7.86 cm","35.4 cm"],ans:1,exp:"k = F/e = 15/0.0786 = 190.8 N/m. Extension for 45 N: e = F/k = 45/19.08 = 2.359 m ≈ 235.9 cm. Wait — 15 N → 0.0786 m, so 45 N → 0.0786×(45/15) = 0.2358 m = 23.58 cm ≈ 23.6 cm."},
+{topic:"Elasticity",q:"Young's Modulus Y = Stress/Strain. Force 48 N on wire, cross-sectional area π×(2)² m². Stress:",opts:["3.82 N/m²","12 N/m²","24 N/m²","6 N/m²"],ans:0,exp:"Stress = F/A = 48/(π×4) = 48/12.57 = 3.82 N/m²."},
+{topic:"Elasticity",q:"Wire length 55.6 m, extension 64.5 m. Strain (extension/original length):",opts:["0.87","1.16","0.58","2.32"],ans:1,exp:"Strain = extension/original length = 64.5/55.6 = 1.16. (Note: strain > 1 would be unusual physically, but this is the calculation from the worked example.)"},
+{topic:"Elasticity",q:"From Y = Stress/Strain = 3.82/1.16. Young's Modulus:",opts:["3.29 N/m²","4.43 N/m²","2.29 N/m²","3.82 N/m²"],ans:0,exp:"Y = Stress/Strain = 3.82/1.16 = 3.29 N/m². (This matches the Sir Confidence worked example exactly.)"},
+{topic:"Elasticity",q:"The elastic limit of a material is:",opts:["Maximum extension before breaking","Maximum stress before permanent deformation","Point of maximum Hooke's Law validity","Maximum strain"],ans:1,exp:"Elastic limit: the maximum stress (or extension) beyond which the material does not return to its original shape — permanent deformation begins."},
+{topic:"Elasticity",q:"Strain is a dimensionless quantity because:",opts:["It is always less than 1","It is a ratio of two lengths","It has no physical meaning","SI units cancel out"],ans:1,exp:"Strain = extension/original length = metres/metres. Being a ratio of two identical units, it is dimensionless."},
+{topic:"Elasticity",q:"Stress = Force/Area. Its SI unit is:",opts:["N·m","N/m² = Pa","N·m²","kg/m³"],ans:1,exp:"Stress = F/A. SI unit = N/m² = Pascal (Pa). Same unit as pressure."},
+{topic:"Elasticity",q:"For two springs in series (same k), effective spring constant is:",opts:["2k","k","k/2","k²"],ans:2,exp:"Springs in series: 1/k_eff = 1/k + 1/k = 2/k → k_eff = k/2. Series springs are softer (easier to stretch)."},
+{topic:"Elasticity",q:"For two springs in parallel (same k), effective spring constant is:",opts:["k/2","k","2k","k²"],ans:2,exp:"Springs in parallel: k_eff = k + k = 2k. Parallel springs are stiffer (harder to stretch)."},
+{topic:"Elasticity",q:"The proportionality limit differs from the elastic limit in that:",opts:["They are identical","Proportionality limit is beyond elastic limit","Hooke's Law holds up to proportionality limit, material still elastic a little beyond","Elastic limit is lower"],ans:2,exp:"Proportionality limit: Hooke's Law (F∝e) holds. Elastic limit: material still returns to shape but F∝e may not hold. Elastic limit > proportionality limit."},
+{topic:"Elasticity",q:"Energy stored in a stretched spring:",opts:["F×e","½ke","½ke²","ke²"],ans:2,exp:"Elastic PE = ½ke² = ½Fe. This is the area under the F-e graph (triangle with base e and height F = ke)."},
+{topic:"Elasticity",q:"A material with high Young's Modulus is:",opts:["Very elastic (easy to stretch)","Very stiff (hard to stretch)","Brittle","Plastic"],ans:1,exp:"High Y = high stress needed for given strain = stiff material. Diamond has Y ≈ 10¹² Pa (very stiff). Rubber has low Y (very elastic/easy to stretch)."},
+
+// ── GRAPH TRANSFORMATION (10) ─────────────────────────────────
+{topic:"Graph Transformation",q:"To linearise T = 2π√(L/g), we square both sides to get T² = ___×L:",opts:["2π/g","4π²/g","π²/g","4π/g"],ans:1,exp:"T² = (4π²/g)L. This is of the form y = mx where y=T², x=L, slope=4π²/g, passing through origin."},
+{topic:"Graph Transformation",q:"For F = ke (Hooke's Law), the linearised graph is:",opts:["F vs e² (slope=k)","F vs e (slope=k, through origin)","F vs √e (slope=k)","e vs F (slope=1/k)"],ans:1,exp:"F = ke is already linear! Plot F (y) vs e (x). Slope = k, y-intercept = 0 (passes through origin)."},
+{topic:"Graph Transformation",q:"For v² = u² + 2as, plotted as v² vs s, the y-intercept gives:",opts:["2a","a","u","u²"],ans:3,exp:"Comparing v² = 2a·s + u² with y = mx + c: slope = 2a, y-intercept = u². So y-intercept = u²."},
+{topic:"Graph Transformation",q:"Equation T = 2π√(M+m₀)/Lg linearises to T² vs M. The x-intercept equals:",opts:["m₀","−m₀","Lg/4π","4π/Lg"],ans:1,exp:"T² = (4π/Lg)M + (4π·m₀/Lg). At T²=0: M = -m₀. So x-intercept = -m₀."},
+{topic:"Graph Transformation",q:"For T = 2π√(H-h)/g, which graph gives a straight line?",opts:["T vs H","T² vs h","h vs T²","T vs h"],ans:2,exp:"T² = 4π²(H-h)/g → h = -gT²/4π² + H. Plot h (y) vs T² (x): slope = -g/4π², y-intercept = H."},
+{topic:"Graph Transformation",q:"For y = ax^n, taking log: log y = log a + n log x. Plotting log y vs log x gives:",opts:["Curve with gradient a","Straight line with slope n","Straight line with slope a","Parabola"],ans:1,exp:"log y = n(log x) + log a. y = mx + c form: slope m = n (the power), y-intercept = log a."},
+{topic:"Graph Transformation",q:"To find constant k from T = k√L, which graph gives slope = k?",opts:["T vs √L","T vs L","T² vs L","√T vs L"],ans:0,exp:"T = k√L. Plot T (y) vs √L (x): slope = k, passing through origin. Direct linearisation."},
+{topic:"Graph Transformation",q:"From T² vs L graph for simple pendulum, if slope = 4.03 s²/m, then g =",opts:["g = 4π²/4.03","g = 4.03/4π²","g = 4.03×4π²","g = 4π²×4.03"],ans:0,exp:"slope = 4π²/g → g = 4π²/slope = 4π²/4.03 = 39.48/4.03 ≈ 9.80 m/s²."},
+{topic:"Graph Transformation",q:"For Boyle's Law PV = constant, which graph is a straight line?",opts:["P vs V","P vs V²","P vs 1/V","PV vs V"],ans:2,exp:"PV = c → P = c × (1/V). Plot P (y) vs 1/V (x): straight line through origin with slope = c."},
+{topic:"Graph Transformation",q:"For F = mv²/r, to find m from graph (varying v and r), plot F vs:",opts:["v","v²/r","v/r","r/v²"],ans:1,exp:"F = m(v²/r). Plot F (y) vs v²/r (x): straight line through origin, slope = m (mass)."},
+
+],
+
+// Question bank ends here
+};
+</script>
+
+<script>
+// ═══════════════════════════════════════════════
+// TOPICS MAP
+// ═══════════════════════════════════════════════
+const TOPICS_MAP = {
+  PHY111:["Dimensional Analysis","Kinematics","Vectors","Newton's Laws","Work, Energy & Power","Momentum & Collisions","Circular & Harmonic Motion","Rotational Dynamics","Static Equilibrium","Gravitation"],
+  PHY117:["Graphical Analysis","Error Analysis","SHM & Pendulum","Circular Motion","Elasticity","Graph Transformation"]
+};
+const COURSE_LABELS = {
+  PHY111:"PHY 111 · General Physics I",
+  PHY117:"PHY 117 · Practical Physics"
+};
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+const S = {
+  course:null, mode:null, topic:null,
+  qCount:20, timeLimit:20,
+  questions:[], answers:{},
+  idx:0, timerInterval:null,
+  timeRemaining:0, timeUsed:0, sessionStart:null,
+};
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+window.onload = () => {
+  ['PHY111','PHY117'].forEach(c => {
+    const n = QUESTION_BANK[c].length;
+    document.getElementById('cnt-'+c).textContent = n + ' questions in bank';
+  });
+  // total stat
+  const total = QUESTION_BANK.PHY111.length + QUESTION_BANK.PHY117.length;
+  const el = document.getElementById('stat-total-q');
+  if (el) el.textContent = total;
+};
+
+// ═══════════════════════════════════════════════
+// SCREEN NAV
+// ═══════════════════════════════════════════════
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ═══════════════════════════════════════════════
+// LANDING INTERACTIONS
+// ═══════════════════════════════════════════════
+function selectCourse(c) {
+  S.course = c;
+  ['PHY111','PHY117'].forEach(x => {
+    document.getElementById('card-'+x).classList.toggle('sel', x === c);
+  });
+  validate();
+}
+
+function selectMode(m) {
+  S.mode = m;
+  ['exam','practice','topic'].forEach(x => {
+    document.getElementById('mode-'+x).classList.toggle('sel', x === m);
+  });
+  const tb = document.getElementById('cfg-time-box');
+  if (tb) tb.style.opacity = m === 'exam' ? '1' : '0.45';
+  validate();
+}
+
+function validate() {
+  const btn = document.getElementById('btn-start');
+  btn.disabled = !(S.course && S.mode);
+  const hint = btn.nextElementSibling;
+  if (hint) {
+    if (S.course && S.mode) {
+      hint.innerHTML = `Ready — <strong>${S.course}</strong> · <strong>${S.mode}</strong> mode`;
+    } else if (S.course) {
+      hint.innerHTML = `Now select a <strong>study mode</strong>`;
+    } else {
+      hint.innerHTML = `Select a <strong>course</strong> and <strong>mode</strong> to start`;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+// START SESSION
+// ═══════════════════════════════════════════════
+async function startSession() {
+  S.qCount    = parseInt(document.getElementById('cfg-count').value);
+  S.timeLimit = parseInt(document.getElementById('cfg-time').value);
+
+  if (S.mode === 'topic') {
+    buildTopicsScreen();
+    showScreen('topics');
+    return;
+  }
+  showScreen('loading');
+  await buildQuestions();
+  launchExam();
+}
+
+// ═══════════════════════════════════════════════
+// TOPIC SCREEN
+// ═══════════════════════════════════════════════
+function buildTopicsScreen() {
+  document.getElementById('topics-course-crumb').textContent = S.course;
+  document.getElementById('topics-course-label').textContent = COURSE_LABELS[S.course];
+  const grid   = document.getElementById('topics-grid');
+  const topics = TOPICS_MAP[S.course];
+  grid.innerHTML = topics.map((t, i) => {
+    const n = QUESTION_BANK[S.course].filter(q => q.topic === t).length;
+    return `<div class="tcard" onclick="selectTopic('${t.replace(/'/g,"\\'")}')">
+      <div class="tcard-num">${String(i+1).padStart(2,'0')}</div>
+      <div class="tcard-info">
+        <div class="tcard-name">${t}</div>
+        <div class="tcard-count">${n} QUESTIONS AVAILABLE</div>
+      </div>
+      <div class="tcard-arrow">→</div>
+    </div>`;
+  }).join('');
+}
+
+async function selectTopic(topic) {
+  S.topic = topic;
+  showScreen('loading');
+  await buildQuestions(topic);
+  launchExam();
+}
+
+// ═══════════════════════════════════════════════
+// BUILD QUESTION SET
+// ═══════════════════════════════════════════════
+async function buildQuestions(topicFilter = null) {
+  let pool = [...QUESTION_BANK[S.course]];
+  if (topicFilter) pool = pool.filter(q => q.topic === topicFilter);
+
+  setLoad('Selecting questions from offline bank...', 45, 2);
+  S.questions = shuffle(pool).slice(0, S.qCount);
+  S.answers   = {};
+  S.idx       = 0;
+  setLoad('Ready!', 100, 3);
+  await sleep(300);
+}
+
+// ═══════════════════════════════════════════════
+// LAUNCH EXAM
+// ═══════════════════════════════════════════════
+function launchExam() {
+  document.getElementById('ex-tag').textContent = COURSE_LABELS[S.course];
+
+  if (S.mode === 'exam') {
+    S.timeRemaining = S.timeLimit * 60;
+    startTimer();
+    document.getElementById('ex-timer-lbl').textContent = 'REMAINING';
+  } else {
+    document.getElementById('ex-timer').textContent = '∞';
+    document.getElementById('ex-timer').classList.add('infinity');
+    document.getElementById('ex-timer-lbl').textContent = 'UNLIMITED';
+  }
+
+  S.sessionStart = Date.now();
+  renderQ();
+  buildPalette();
+  showScreen('exam');
+}
+
+// ═══════════════════════════════════════════════
+// TIMER
+// ═══════════════════════════════════════════════
+function startTimer() {
+  clearInterval(S.timerInterval);
+  updateTimer();
+  S.timerInterval = setInterval(() => {
+    S.timeRemaining--;
+    updateTimer();
+    if (S.timeRemaining <= 0) {
+      clearInterval(S.timerInterval);
+      finishExam();
+    }
+  }, 1000);
+}
+
+function updateTimer() {
+  const el = document.getElementById('ex-timer');
+  const m  = Math.floor(S.timeRemaining / 60);
+  const s  = S.timeRemaining % 60;
+  el.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  el.classList.toggle('warning', S.timeRemaining < 60 && S.timeRemaining > 0);
+}
+
+// ═══════════════════════════════════════════════
+// RENDER QUESTION
+// ═══════════════════════════════════════════════
+function renderQ() {
+  const q    = S.questions[S.idx];
+  const tot  = S.questions.length;
+  const ans  = Object.keys(S.answers).length;
+  const pct  = Math.round((S.idx / tot) * 100);
+  const LTR  = ['A','B','C','D'];
+  const ua   = S.answers[S.idx];
+  const done = ua !== undefined;
+  const isPrac = S.mode === 'practice';
+
+  // Header
+  document.getElementById('q-num').textContent   = `Q ${String(S.idx+1).padStart(2,'0')}`;
+  document.getElementById('q-ttag').textContent   = q.topic;
+  document.getElementById('q-text').textContent   = q.q;
+  document.getElementById('prog-lbl').textContent  = `Question ${S.idx+1} of ${tot}`;
+  document.getElementById('prog-ans').textContent  = `${ans} answered`;
+  document.getElementById('prog-fill').style.width = pct + '%';
+
+  const stag = document.getElementById('q-stag');
+  stag.textContent = 'OFFLINE';
+  stag.classList.remove('ai');
+
+  // Options
+  const optsEl = document.getElementById('opts');
+  optsEl.innerHTML = q.opts.map((opt, i) => {
+    let cls = '';
+    if (done) {
+      if (i === q.ans) cls = 'correct';
+      else if (i === ua) cls = 'wrong';
+      else if (!isPrac && i === q.ans) cls = 'show-correct';
+    }
+    const indicator = done ? (i === q.ans ? '✓' : (i === ua ? '✗' : '')) : '';
+    return `<button class="opt-btn ${cls}" onclick="pickAns(${i})" ${done ? 'disabled' : ''}>
+      <div class="opt-letter">${LTR[i]}</div>
+      <div class="opt-text">${opt}</div>
+      <div class="opt-indicator">${indicator}</div>
+    </button>`;
+  }).join('');
+
+  // Explanation
+  const expBox = document.getElementById('exp-box');
+  if (done && isPrac) {
+    document.getElementById('exp-text').textContent = q.exp || 'Refer to your textbook for a detailed explanation.';
+    expBox.classList.add('show');
+  } else {
+    expBox.classList.remove('show');
+  }
+
+  document.getElementById('btn-prev').disabled = S.idx === 0;
+  document.getElementById('btn-next').disabled = S.idx === tot - 1;
+  updatePalette();
+}
+
+// ═══════════════════════════════════════════════
+// PICK ANSWER
+// ═══════════════════════════════════════════════
+function pickAns(i) {
+  if (S.answers[S.idx] !== undefined) return;
+  S.answers[S.idx] = i;
+  renderQ();
+  // auto-advance in exam mode after brief delay
+  if (S.mode === 'exam' && S.idx < S.questions.length - 1) {
+    setTimeout(() => nav(1), 520);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════
+function nav(dir) {
+  const ni = S.idx + dir;
+  if (ni >= 0 && ni < S.questions.length) { S.idx = ni; renderQ(); }
+}
+
+// ═══════════════════════════════════════════════
+// PALETTE
+// ═══════════════════════════════════════════════
+function buildPalette() {
+  document.getElementById('palette').innerHTML =
+    S.questions.map((_, i) =>
+      `<div class="pdot" id="pd-${i}" onclick="jumpTo(${i})">${i+1}</div>`
+    ).join('');
+}
+
+function updatePalette() {
+  S.questions.forEach((_, i) => {
+    const d = document.getElementById('pd-' + i);
+    if (!d) return;
+    d.className = 'pdot';
+    if (S.answers[i] !== undefined) d.classList.add('answered');
+    if (i === S.idx) d.classList.add('current');
+  });
+}
+
+function jumpTo(i) { S.idx = i; renderQ(); }
+
+// ═══════════════════════════════════════════════
+// FINISH EXAM
+// ═══════════════════════════════════════════════
+function finishExam() {
+  clearInterval(S.timerInterval);
+  S.timeUsed = Math.floor((Date.now() - S.sessionStart) / 1000);
+  buildResults();
+  showScreen('results');
+}
+
+// ═══════════════════════════════════════════════
+// BUILD RESULTS
+// ═══════════════════════════════════════════════
+function buildResults() {
+  const qs = S.questions, tot = qs.length;
+  let correct = 0, wrong = 0, skipped = 0;
+  qs.forEach((q, i) => {
+    const a = S.answers[i];
+    if (a === undefined) skipped++;
+    else if (a === q.ans) correct++;
+    else wrong++;
+  });
+
+  const pct   = Math.round((correct / tot) * 100);
+  const grade = pct >= 70 ? 'A' : pct >= 60 ? 'B' : pct >= 50 ? 'C' : pct >= 45 ? 'D' : 'F';
+  const remarks = {
+    A: 'Outstanding result. You are fully prepared for this exam.',
+    B: 'Strong performance. Review a few weak areas and you\'re exam-ready.',
+    C: 'Average. Consistent daily practice will push you to a B.',
+    D: 'Below average. Target your weak topics urgently.',
+    F: 'Significant revision needed. Review all topics systematically.'
+  };
+  const emojis = { A:'🌟', B:'👍', C:'📖', D:'⚠️', F:'📚' };
+
+  // Hero
+  const gEl = document.getElementById('res-grade');
+  gEl.textContent = grade; gEl.className = 'score-hero-grade ' + grade;
+  document.getElementById('res-pct').textContent    = pct + '%';
+  document.getElementById('res-score').textContent  = `${correct} / ${tot} CORRECT`;
+  document.getElementById('res-remark').textContent = `${emojis[grade]} ${remarks[grade]}`;
+
+  // Score tags
+  const tagEl = document.getElementById('res-tags');
+  const tags = [
+    COURSE_LABELS[S.course],
+    S.mode === 'exam' ? 'TIMED MODE' : S.mode === 'practice' ? 'PRACTICE MODE' : 'TOPIC FOCUS',
+    tot + ' QUESTIONS'
+  ];
+  tagEl.innerHTML = tags.map(t => `<span class="score-tag">${t}</span>`).join('');
+
+  // Stats
+  document.getElementById('st-c').textContent = correct;
+  document.getElementById('st-w').textContent = wrong;
+  document.getElementById('st-s').textContent = skipped;
+  const m = Math.floor(S.timeUsed / 60), s = S.timeUsed % 60;
+  document.getElementById('st-t').textContent = `${m}m ${s}s`;
+
+  // Topic breakdown
+  const tmap = {};
+  qs.forEach((q, i) => {
+    if (!tmap[q.topic]) tmap[q.topic] = { c:0, t:0 };
+    tmap[q.topic].t++;
+    if (S.answers[i] === q.ans) tmap[q.topic].c++;
+  });
+
+  const topicCount = Object.keys(tmap).length;
+  document.getElementById('bd-meta').textContent = topicCount + ' TOPICS';
+
+  document.getElementById('bd-rows').innerHTML = Object.entries(tmap).map(([t, d]) => {
+    const p   = Math.round((d.c / d.t) * 100);
+    const col = p >= 70 ? 'var(--emerald)' : p >= 50 ? 'var(--amber)' : 'var(--rose)';
+    return `<div class="bd-row">
+      <div class="bd-topic">${t}</div>
+      <div class="bd-bar-wrap">
+        <div class="bd-bar-fill" style="width:${p}%;background:${col}"></div>
+      </div>
+      <div class="bd-score" style="color:${col}">${d.c}/${d.t}</div>
+    </div>`;
+  }).join('');
+
+  // Review
+  const LTR = ['A','B','C','D'];
+  document.getElementById('rev-count').textContent = tot + ' QUESTIONS';
+  document.getElementById('rev-items').innerHTML = qs.map((q, i) => {
+    const ua   = S.answers[i];
+    const skip = ua === undefined;
+    const ok   = ua === q.ans;
+    const sClass = skip ? 'skipped' : ok ? 'correct' : 'wrong';
+    const sText  = skip ? '⬜ SKIPPED' : ok ? '✓ CORRECT' : '✗ WRONG';
+
+    let ansLines = '';
+    if (!skip) {
+      ansLines += `<div class="rev-ans-row ${ok ? 'your-correct' : 'your-wrong'}">Your answer: ${LTR[ua]}. ${q.opts[ua]}</div>`;
+    }
+    if (!ok && !skip) {
+      ansLines += `<div class="rev-ans-row correct-ans">Correct: ${LTR[q.ans]}. ${q.opts[q.ans]}</div>`;
+    }
+
+    return `<div class="rev-item">
+      <div class="rev-top">
+        <div class="rev-meta">Q${i+1} · ${q.topic} · OFFLINE BANK</div>
+        <div class="rev-status ${sClass}">${sText}</div>
+      </div>
+      <div class="rev-q">${q.q}</div>
+      <div class="rev-answers">
+        ${ansLines}
+        ${q.exp ? `<div class="rev-exp">${q.exp}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// RETRY
+// ═══════════════════════════════════════════════
+async function retryExam() {
+  showScreen('loading');
+  setLoad('Reshuffling questions...', 20, 1);
+  await buildQuestions(S.topic || null);
+  launchExam();
+}
+
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+function shuffle(a) {
+  const b = [...a];
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i+1));
+    [b[i], b[j]] = [b[j], b[i]];
+  }
+  return b;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function setLoad(msg, pct, step) {
+  document.getElementById('load-status').textContent = msg;
+  document.getElementById('load-bar').style.width = pct + '%';
+  const pctEl = document.getElementById('load-pct');
+  if (pctEl) pctEl.textContent = pct + '%';
+  // update steps
+  for (let i = 0; i <= 3; i++) {
+    const el = document.getElementById('lstep-' + i);
+    if (!el) continue;
+    if (i < step) el.className = 'load-step done';
+    else if (i === step) el.className = 'load-step active';
+    else el.className = 'load-step';
+  }
+}
+</script>
+</body>
+</html>
